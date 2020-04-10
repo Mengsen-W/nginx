@@ -3,5 +3,7 @@
 
 //函数声明
 void myconf();
+void Rtrim(char *string);
+void Ltrim(char *string);
 #define MYVER "1.2"
 #endif
