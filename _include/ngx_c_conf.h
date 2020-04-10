@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 19:00:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-10 22:56:30
+ * @Last Modified time: 2020-04-10 23:00:02
  * @Description: 读取配置文件
  */
 
@@ -28,15 +28,15 @@ class CConfig {
     if (m_instance == nullptr) {
       if (m_instance == nullptr) {
         m_instance = new CConfig();
-        static CGarhuishou c1;
+        static GC_CConfig c;
       }
     }
     return m_instance;
   }
 
-  class CGarhuishou {
+  class GC_CConfig {
    public:
-    ~CGarhuishou() {
+    ~GC_CConfig() {
       delete CConfig::m_instance;
       CConfig::m_instance = nullptr;
     }
