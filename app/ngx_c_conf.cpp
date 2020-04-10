@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 18:48:56
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-10 21:07:12
+ * @Last Modified time: 2020-04-10 22:44:44
  * @Description: 读取配置文件的实现
  */
 
@@ -56,5 +56,41 @@ bool CConfig::Load(const char* pconfName) {
     }
     if (linebuf[0] == 0) continue;
     if (linebuf[0] == '[') continue;
+
+    char* ptmp = strchr(linebuf, '=');
+    if (ptmp != nullptr) {
+      LPCConfItem p_confitem = new CConfItem;
+      memset(p_confitem, 0, sizeof(CConfItem));
+      strncpy(p_confitem->ItemName, linebuf, (int)(ptmp - linebuf));
+      strcpy(p_confitem->ItemContent, ptmp + 1);
+
+      Rtrim(p_confitem->ItemName);
+      Ltrim(p_confitem->ItemName);
+      Rtrim(p_confitem->ItemContent);
+      Ltrim(p_confitem->ItemContent);
+
+      m_ConfigItemList.push_back(p_confitem);
+    }
   }
+  fclose(fp);
+  return true;
+}
+
+char* CConfig::GetString(const char* p_itemname) {
+  std::vector<LPCConfItem>::iterator pos;
+  for (pos = m_ConfigItemList.begin(); pos != m_ConfigItemList.end(); ++pos) {
+    if (strcasecmp((*pos)->ItemContent, p_itemname) == 0)
+      return (*pos)->ItemContent;
+  }
+  return NULL;
+}
+
+int CConfig::GetIntDefault(const char* p_itemname, const int def) {
+  std::vector<LPCConfItem>::iterator pos;
+  for (pos = m_ConfigItemList.begin(); pos != m_ConfigItemList.end(); ++pos) {
+    if (strcasecmp((*pos)->ItemContent, p_itemname) == 0)
+      return atoi((*pos)->ItemContent);
+  }
+
+  return def;
 }

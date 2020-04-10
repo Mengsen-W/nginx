@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 20:27:51
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-10 20:29:49
+ * @Last Modified time: 2020-04-10 22:48:07
  * @Description: 主函数
  */
 
@@ -14,8 +14,6 @@
 
 int main(int argc, char *const *argv) {
   printf("非常高兴，大家和老师一起学习《linux c++通讯架构实战》\n");
-  myconf();
-  mysignal();
 
   CConfig *p_config = CConfig::GetInstance();
   if (p_config->Load("nginx.conf") == false) {
