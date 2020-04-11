@@ -8,6 +8,7 @@
 
 #include "ngx_c_conf.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include <iostream>

@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 19:00:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-10 23:00:02
+ * @Last Modified time: 2020-04-11 21:59:29
  * @Description: 读取配置文件
  */
 
@@ -16,8 +16,6 @@
 class CConfig {
  private:
   CConfig();
-
- public:
   ~CConfig();
 
  private:
@@ -27,8 +25,8 @@ class CConfig {
   static CConfig *GetInstance() {
     if (m_instance == nullptr) {
       if (m_instance == nullptr) {
-        m_instance = new CConfig();
         static GC_CConfig c;
+        m_instance = new CConfig();
       }
     }
     return m_instance;

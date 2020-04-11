@@ -23,8 +23,8 @@ void Rtrim(char* string) {
 
 // 截取字符串首部空格
 void Ltrim(char* string) {
-  size_t len = 0;
-  len = strlen(string);
+  size_t len = strlen(string);
+  if (len == 0) return;
   char* p_tmp = string;
 
   // 不是以空格开头

@@ -3,7 +3,8 @@
 
 ifeq ($(DEBUG),true)
 #-g是生成调试信息。GNU调试器可以利用该信息
-CC = g++ -g -Wall -fsanitize=address -fno-omit-frame-pointer
+CC = g++ -g -Wall 
+# -fsanitize=address -fno-omit-frame-pointer
 VERSION = debug
 else
 CC = g++
@@ -65,7 +66,7 @@ endif
 #----------------------------------------------------------------1begin------------------
 #$(BIN):$(OBJS)
 $(BIN):$(LINK_OBJ)
-	@echo "------------------------build $(VERSION) mode--------------------------------!!!"
+	@echo "---- build $(VERSION) mode -----"
 
 #一些变量：$@：目标，     $^：所有目标依赖
 # gcc -o 是生成可执行文件
