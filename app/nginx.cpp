@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 20:27:51
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-11 22:20:40
+ * @Last Modified time: 2020-04-15 19:25:11
  * @Description: 主函数
  */
 
@@ -13,12 +13,11 @@
 #include "ngx_signal.h"
 
 char **g_os_argv = nullptr;
-char *gp_envmem = nullptr;
+char **gp_envmem = nullptr;
 int g_environlen = 0;
-// extern char **environ;
 
-int main(int argc, char *const *argv) {
-  g_os_argv = const_cast<char **>(argv);
+int main(int argc, char *argv[]) {
+  g_os_argv = argv;
   ngx_init_setproctitle();
   ngx_setproctitle("nginx: master");
   printf("非常高兴，大家和老师一起学习《linux c++通讯架构实战》\n");

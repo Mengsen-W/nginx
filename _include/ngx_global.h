@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 19:04:00
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-11 21:13:52
+ * @Last Modified time: 2020-04-15 19:34:58
  * @Description: 全局变量的设置
  */
 
@@ -14,12 +14,10 @@ typedef struct {
   char ItemContent[500];
 } CConfItem, *LPCConfItem;
 
-// 保存 argv 数组
+// 保存指向 argv 数组
 extern char **g_os_argv;
-// 保存环境表envmen的首地址
-//但是不改变 environ 二级指针的指向 使程序可以默认调用
-// 也不改变实际指向的常字符串
-extern char *gp_envmem;
+// 环境表envmen数组的首地址
+extern char **gp_envmem;
 // 保存 argc
 extern int g_environlen;
 

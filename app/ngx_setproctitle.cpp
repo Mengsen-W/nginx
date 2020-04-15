@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-11 20:20:39
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-11 22:20:53
+ * @Last Modified time: 2020-04-15 19:49:26
  * @Description: 设置进程名，将环境变量拷贝到新内存中
  */
 
@@ -22,19 +22,14 @@ void ngx_init_setproctitle() {
   }
 
   // 这里无需判断 penvmen == NULL
-  gp_envmem = new char[g_environlen];
-  // 清零内存
+  gp_envmem = new char*[g_environlen];
   memset(gp_envmem, 0, g_environlen);
+  // 把环境表整体拷贝到对空间
+  memcpy(gp_envmem, environ, g_environlen);
+  // 清空原空间
+  memset(environ, 0, g_environlen);
+  environ = gp_envmem;
 
-  char* ptmp = gp_envmem;
-
-  // 填充内存
-  for (int i = 0; environ[i]; ++i) {
-    size_t size = strlen(environ[i]) + 1;  // 环境表是没有变化的
-    strcpy(ptmp, environ[i]);  // 把原环境变量内容拷贝到新内存
-    environ[i] = ptmp;         // 将原来新环境变量指向新内存
-    ptmp += size;              // 为下次分配准备
-  }
   return;
 }
 
