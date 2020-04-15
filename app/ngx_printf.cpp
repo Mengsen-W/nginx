@@ -2,8 +2,8 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-15 17:41:17
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-15 19:18:08
- * @Description: 打印日志
+ * @Last Modified time: 2020-04-15 19:51:40
+ * @Description: 打印格式相关
  */
 
 #include <stdio.h>
