@@ -2,9 +2,10 @@
 #define __NGX_MACRO_H__
 
 //宏定义-----------------------------------------------------------------------
-#define NGX_MAX_ERROR_STR 2048  // 显示错误信息数组的最大长度
-#define NGX_MAX_UINT32_VALUE \
-  (uint32_t)0xffffffff  // 最大32位无符号数，4294967295(10)
+// 显示错误信息数组的最大长度
+#define NGX_MAX_ERROR_STR 2048
+// 最大32位无符号数，4294967295(10)
+#define NGX_MAX_UINT32_VALUE (uint32_t)0xffffffff
 #define NGX_INT64_LEN (sizeof("-9223372036854775808") - 1)
 
 //简单功能函数-----------------------------------------------------------------
