@@ -53,6 +53,16 @@ void ngx_log_stderr(int err, const char *fmt, ...) {
   va_start(args, fmt);                   /* 使args指向fmt之后的参数 */
   p = ngx_vslprintf(p, last, fmt, args);
   va_end(args); /* 释放 args */
-  if (err) {
+
+  if (err) { /* 如果错误代码不是0，表示有错误发生 */
+    p = ngx_log_errno(p, last, err);
   }
+
+  if (p >= (last - 1)) { /* 位置不够就放弃 */
+    p = (last - 1) - 1;
+  }
+  /* 换行符必须要插入 */
+  *p++ = '\n';
+
+  return;
 }

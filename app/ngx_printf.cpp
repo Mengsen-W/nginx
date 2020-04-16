@@ -270,6 +270,7 @@ static u_char *ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64,
         /* 7654321这个数字保存成：temp[13]=7,temp[14]=6,temp[15]=5 */
         /* temp[16]=4,temp[17]=3,temp[18]=2,temp[19]=1 */
         /* 除这些值之外的temp[0..12]以及temp[20]都是不确定的值 */
+        /* 转换数字只能在 [0-9] 内 */
         *--p = (u_char)(ui32 % 10 + '0');
         /* 把屁股后边这个数字拿出来往数组里装，并且是倒着装 */
       } while (ui32 /= 10); /* 每次缩小10倍等于去掉屁股后边这个数字 */
@@ -328,5 +329,7 @@ static u_char *ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64,
     len = last - buf;  //剩余的buf有多少我就拷贝多少
   }
 
-  return ngx_cpymem(buf, p, len);  //把最新buf返回去；
+  return ngx_cpymem(buf, p, len);
+  /* 构造p的时候已经把int转为char了 */
+  /* 把最新p写回到buf去 */
 }
