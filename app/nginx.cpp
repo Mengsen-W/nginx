@@ -6,6 +6,11 @@
  * @Description: 主函数
  */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <iostream>
 
 #include "ngx_c_conf.h"
@@ -15,6 +20,8 @@
 char **g_os_argv = nullptr;
 char **gp_envmem = nullptr;
 int g_environlen = 0;
+
+pid_t ngx_pid;  //当前进程的pid
 
 int main(int argc, char *argv[]) {
   g_os_argv = argv;

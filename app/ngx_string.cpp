@@ -8,8 +8,6 @@
 
 #include <string.h>
 
-#include <iostream>
-
 // 截取字符串尾部空格
 void Rtrim(char* string) {
   size_t len = 0;

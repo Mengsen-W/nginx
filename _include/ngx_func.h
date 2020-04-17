@@ -15,7 +15,9 @@ void ngx_setproctitle(const char *);
 // 删除环境列表
 void ngx_deleteEnvironment();
 // 格式化字符串
-u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt,
-                      va_list args) {
+u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
+// 封装 ngx_vslprintf
+u_char *ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...);
+u_char *ngx_log_errno(u_char *buf, u_char *last, int err);
 #define MYVER "1.2"
 #endif

@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "ngx_func.h"
+#include "ngx_global.h"
 #include "ngx_macro.h"
 
 static u_char *ngx_sprintf_num(u_char *buf, u_char *last, uint64_t ui64,
