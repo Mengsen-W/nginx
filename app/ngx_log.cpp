@@ -189,7 +189,6 @@ void ngx_log_error_core(int level, int err, const char *fmt, ...) {
       /* 这种日志就不打印了 */
       break;
     }
-    /* 磁盘是否满了的判断，先算了吧，还是由管理员保证这个事情吧；*/
 
     /* 写日志文件 */
     n = write(ngx_log.fd, errstr, p - errstr); /* 文件写入成功后，如果中途 */
@@ -206,7 +205,9 @@ void ngx_log_error_core(int level, int err, const char *fmt, ...) {
       }
     }
     break;
+
   }  // end while
+
   return;
 }
 

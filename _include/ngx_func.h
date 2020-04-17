@@ -18,6 +18,7 @@ void ngx_deleteEnvironment();
 u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
 // 封装 ngx_vslprintf
 u_char *ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...);
-u_char *ngx_log_errno(u_char *buf, u_char *last, int err);
+// 初始化log文件
+void ngx_log_init();
 #define MYVER "1.2"
 #endif
