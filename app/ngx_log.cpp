@@ -38,11 +38,11 @@ static u_char err_levels[][20] = {
 ngx_log_t ngx_log;
 
 /*
- * @ Description: 控制台输出，最高等级错误
+ * @ Description: 控制台输出
  * @ Parameter:
  *         err: 错误代码
  *         fmt: 储存文本信息的格式
- *         ...: 可变参
+ *         ...: 可变参数列表
  */
 void ngx_log_stderr(int err, const char *fmt, ...) {
   va_list args;                          //创建一个 va_list 类型变量
@@ -71,11 +71,11 @@ void ngx_log_stderr(int err, const char *fmt, ...) {
 }
 
 /*
- * @ Description: 显示错误码
+ * @ Description: 加入错误码
  * Parameter:
- *        buf: buffer
- *       last: buffer结尾标记
- *        err: 错误码
+ *       buf: buffer
+ *      last: buffer结尾标记
+ *       err: 错误码
  */
 u_char *ngx_log_errno(u_char *buf, u_char *last, int err) {
   /* 以下代码是我自己改造，感觉作者的代码有些瑕疵 */
@@ -102,7 +102,12 @@ u_char *ngx_log_errno(u_char *buf, u_char *last, int err) {
 }
 
 /*
- * @ Description:
+ * @ Description: 写日志文件的核心函数
+ * @ Parameter:
+ *       level: 日志等级
+ *         err: 错误码
+ *         fmt: 写入字符串
+ *         ...: 可变参数列表
  */
 void ngx_log_error_core(int level, int err, const char *fmt, ...) {
   u_char *last;
@@ -211,7 +216,6 @@ void ngx_log_error_core(int level, int err, const char *fmt, ...) {
  */
 void ngx_log_init() {
   u_char *plogname = NULL;
-  size_t nlen;
 
   /* 从配置文件中读取和日志相关的配置信息 */
   CConfig *p_config = CConfig::GetInstance();
@@ -224,7 +228,6 @@ void ngx_log_init() {
 
   ngx_log.log_level = p_config->GetIntDefault("LogLevel", NGX_LOG_NOTICE);
   /* 缺省日志等级为6【注意】 ，如果读失败，就给缺省日志等级 */
-  /* nlen = strlen((const char *)plogname); */
 
   /* 只写打开|追加到末尾|文件不存在则创建【这个需要跟第三参数指定文件访问权限】*/
   ngx_log.fd =
