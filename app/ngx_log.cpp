@@ -138,7 +138,7 @@ void ngx_log_error_core(int level, int err, const char *fmt, ...) {
   tm.tm_year += 1900; /* 年份要调整下才正常 */
 
   u_char strcurrtime[40] = {0};
-  /* 先组合出一个当前时间字符串，格式形如：2019/01/08 19:57:11 */
+  /* 先组合出一个当前时间字符串，格式形如：2020/01/08 19:57:11 */
 
   ngx_slprintf(strcurrtime, (u_char *)-1, "%4d/%02d/%02d %02d:%02d:%02d",
                tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min,
