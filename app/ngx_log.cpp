@@ -37,6 +37,8 @@ static u_char err_levels[][20] = {
 
 ngx_log_t ngx_log;
 
+u_char *ngx_log_errno(u_char *buf, u_char *last, int err);
+
 /*
  * @ Description: 控制台输出
  * @ Parameter:
@@ -67,6 +69,8 @@ void ngx_log_stderr(int err, const char *fmt, ...) {
   /* 换行符必须要插入 */
   *p++ = '\n';
 
+  write(STDERR_FILENO, errstr, p - errstr);
+
   return;
 }
 
@@ -87,7 +91,7 @@ u_char *ngx_log_errno(u_char *buf, u_char *last, int err) {
   sprintf(leftstr, " (%d: ", err);
   size_t leftlen = strlen(leftstr);
 
-  char rightstr[] = ") ";
+  char rightstr[] = ")";
   size_t rightlen = strlen(rightstr);
 
   size_t extralen = leftlen + rightlen; /* 左右的额外宽度 */
@@ -220,7 +224,7 @@ void ngx_log_init() {
 
   /* 从配置文件中读取和日志相关的配置信息 */
   CConfig *p_config = CConfig::GetInstance();
-  plogname = (u_char *)p_config->GetString("Log");
+  plogname = (u_char *)p_config->GetString("LogsFileName");
   if (plogname == NULL) {
     /* 没读到，就要给个缺省的路径文件名了 */
     plogname = (u_char *)NGX_ERROR_LOG_PATH;
@@ -228,6 +232,8 @@ void ngx_log_init() {
   }
 
   ngx_log.log_level = p_config->GetIntDefault("LogLevel", NGX_LOG_NOTICE);
+  printf("LogLevel = %d\n", ngx_log.log_level);
+  printf("LogsName = %s\n", plogname);
   /* 缺省日志等级为6【注意】 ，如果读失败，就给缺省日志等级 */
 
   /* 只写打开|追加到末尾|文件不存在则创建【这个需要跟第三参数指定文件访问权限】*/

@@ -23,23 +23,56 @@ int g_environlen = 0;
 
 pid_t ngx_pid;  //当前进程的pid
 
+static void freeresource();
+
 int main(int argc, char *argv[]) {
+  std::cout << "begin" << std::endl;
 
   ngx_pid = getpid();
   g_os_argv = argv;
 
+  // 初始化配置文件
   CConfig *p_config = CConfig::GetInstance();
   if (p_config->Load("nginx.conf") == false) {
-    std::cerr << "Open config false" << std::endl;
+    ngx_log_stderr(0, "configure failed", "nginx.conf");
     exit(1);
   }
 
+  // 初始化函数
   ngx_log_init();
   ngx_init_setproctitle();
+
+  // 设定环境函数
   ngx_setproctitle("nginx: master");
 
-  printf("非常高兴，大家和老师一起学习《linux c++通讯架构实战》\n");
-  ngx_deleteEnvironment();
-  printf("程序退出，再见!\n");
+  ngx_log_stderr(1, "invalid option: \"%s\"", argv[0]);
+  ngx_log_stderr(2, "invalid option: %10d", 21);
+  ngx_log_stderr(3, "invalid option: %010d", 21);
+  ngx_log_stderr(4, "invalid option: %.6f", 21.378);
+  ngx_log_stderr(5, "invalid option: %.6f", 12.999);
+  ngx_log_stderr(6, "invalid option: %.2f", 12.999);
+  ngx_log_stderr(7, "invalid option: %xd", 1678);
+  ngx_log_stderr(8, "invalid option: %Xd", 1678);
+  ngx_log_stderr(9, "invalid option: %d", 1678);
+  ngx_log_stderr(10, "invalid option: %s , %d", "testInfo", 326);
+
+  for (int i = 0; i < 9; ++i) {
+    ngx_log_error_core(i, i + 1, "this failed xxx, and put out = %s", "YYYY");
+  }
+
+  // 释放资源函数
+  freeresource();
+
   return 0;
+}
+
+static void freeresource() {
+  //(1)对于因为设置可执行程序标题导致的环境变量分配的内存，我们应该释放
+  ngx_deleteEnvironment();
+
+  //(2)关闭日志文件
+  if (ngx_log.fd != STDERR_FILENO && ngx_log.fd != -1) {
+    close(ngx_log.fd);  //不用判断结果了
+    ngx_log.fd = -1;    //标记下，防止被再次close吧
+  }
 }

@@ -6,13 +6,13 @@
  * @Description: 读取配置文件的实现
  */
 
+#include "ngx_c_conf.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <vector>
 
-#include "ngx_c_conf.h"
 #include "ngx_func.h"
 
 // 初始化尽静态成员
@@ -37,7 +37,7 @@ bool CConfig::Load(const char* pconfName) {
   char linebuf[512]; /*每一行配置文件读出来放在这里*/
 
   while (!feof(fp)) {                    /*判断是否读到末尾*/
-    if (fgets(linebuf, 500, fp) == NULL) /*读取每一行，出错或者到末尾返回 NULL*/
+    if (fgets(linebuf, 511, fp) == NULL) /*读取每一行，出错或者到末尾返回 NULL*/
       continue;
     if (linebuf[0] == 0) continue; /*读到空行返回 0 移除空行*/
     // 处理注释
@@ -70,6 +70,7 @@ bool CConfig::Load(const char* pconfName) {
       Ltrim(p_confitem->ItemContent);
 
       m_ConfigItemList.push_back(p_confitem);
+      printf("%s and %s\n", p_confitem->ItemName,p_confitem->ItemContent);
     }
   }
   fclose(fp);
@@ -78,8 +79,9 @@ bool CConfig::Load(const char* pconfName) {
 
 char* CConfig::GetString(const char* p_itemname) {
   std::vector<LPCConfItem>::iterator pos;
+
   for (pos = m_ConfigItemList.begin(); pos != m_ConfigItemList.end(); ++pos) {
-    if (strcasecmp((*pos)->ItemContent, p_itemname) == 0)
+    if (strcasecmp((*pos)->ItemName, p_itemname) == 0)
       return (*pos)->ItemContent;
   }
   return NULL;
@@ -88,7 +90,7 @@ char* CConfig::GetString(const char* p_itemname) {
 int CConfig::GetIntDefault(const char* p_itemname, const int def) {
   std::vector<LPCConfItem>::iterator pos;
   for (pos = m_ConfigItemList.begin(); pos != m_ConfigItemList.end(); ++pos) {
-    if (strcasecmp((*pos)->ItemContent, p_itemname) == 0)
+    if (strcasecmp((*pos)->ItemName, p_itemname) == 0)
       return atoi((*pos)->ItemContent);
   }
 

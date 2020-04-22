@@ -60,10 +60,10 @@ u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt,
 
       //格式化完成
 
-      while (*fmt >= '0' && *fmt <= '9') /* 这里已经取完前面的第一个0 了 */
+      while (*fmt >= '0' && *fmt <= '9') { /* 这里已经取完前面的第一个0 了 */
         /* 除了第一个0，剩下的0会在这里跳过 */
-        width = width * 10 + (*fmt - '0'); /* %16 -> width = 1 -> width = 16 */
-      // while end
+        width = width * 10 + (*fmt++ - '0'); /* %16 -> width = 1 -> width = 16 */
+      }  // while end
 
       for (;;) { /* 一些特殊标识会在这里给标记位打标记 */
         switch (*fmt) {

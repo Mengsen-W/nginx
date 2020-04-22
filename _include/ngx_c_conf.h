@@ -10,6 +10,7 @@
 #define __NGX_CONF_H__
 
 #include <vector>
+#include <stdlib.h>
 
 #include "ngx_global.h"
 

@@ -20,5 +20,9 @@ u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
 u_char *ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...);
 // 初始化log文件
 void ngx_log_init();
+// 标准错误打印
+void ngx_log_stderr(int err, const char *fmt, ...);
+// 写日志核心函数
+void ngx_log_error_core(int level, int err, const char *fmt, ...);
 #define MYVER "1.2"
 #endif
