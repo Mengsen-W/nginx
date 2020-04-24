@@ -41,25 +41,30 @@ int main(int argc, char *argv[]) {
   // 初始化函数
   ngx_log_init();
   ngx_init_setproctitle();
+  ngx_init_signals();
 
   // 设定环境函数
   ngx_setproctitle("nginx: master");
 
-  ngx_log_stderr(1, "invalid option: \"%s\"", argv[0]);
-  ngx_log_stderr(2, "invalid option: %10d", 21);
-  ngx_log_stderr(3, "invalid option: %010d", 21);
-  ngx_log_stderr(4, "invalid option: %.6f", 21.378);
-  ngx_log_stderr(5, "invalid option: %.6f", 12.999);
-  ngx_log_stderr(6, "invalid option: %.2f", 12.999);
-  ngx_log_stderr(7, "invalid option: %xd", 1678);
-  ngx_log_stderr(8, "invalid option: %Xd", 1678);
-  ngx_log_stderr(9, "invalid option: %d", 1678);
-  ngx_log_stderr(10, "invalid option: %s , %d", "testInfo", 326);
+  // ngx_log_stderr(1, "invalid option: \"%s\"", argv[0]);
+  // ngx_log_stderr(2, "invalid option: %10d", 21);
+  // ngx_log_stderr(3, "invalid option: %010d", 21);
+  // ngx_log_stderr(4, "invalid option: %.6f", 21.378);
+  // ngx_log_stderr(5, "invalid option: %.6f", 12.999);
+  // ngx_log_stderr(6, "invalid option: %.2f", 12.999);
+  // ngx_log_stderr(7, "invalid option: %xd", 1678);
+  // ngx_log_stderr(8, "invalid option: %Xd", 1678);
+  // ngx_log_stderr(9, "invalid option: %d", 1678);
+  // ngx_log_stderr(10, "invalid option: %s , %d", "testInfo", 326);
 
-  for (int i = 0; i < 9; ++i) {
-    ngx_log_error_core(i, i + 1, "this failed xxx, and put out = %s", "YYYY");
+  // for (int i = 0; i < 9; ++i) {
+  //   ngx_log_error_core(i, i + 1, "this failed xxx, and put out = %s",
+  //   "YYYY");
+  // }
+
+  while (1) {
+    sleep(1);
   }
-
   // 释放资源函数
   freeresource();
 

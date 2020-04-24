@@ -3,7 +3,7 @@
 
 ifeq ($(DEBUG),true)
 #-g是生成调试信息。GNU调试器可以利用该信息
-CC = g++ -g -Wall 
+CC = g++ -g -Wall
 # -fsanitize=address -fno-omit-frame-pointer
 VERSION = debug
 else
@@ -79,7 +79,7 @@ $(BIN):$(LINK_OBJ)
 #%.o:%.cpp
 $(LINK_OBJ_DIR)/%.o:%.cpp
 # gcc -c是生成.o目标文件   -I可以指定头文件的路径
-#如下不排除有其他字符串，所以从其中专门把.cpp过滤出来
+# 所以从其中专门把.cpp过滤出来
 #$(CC) -o $@ -c $^
 	$(CC) -I$(INCLUDE_PATH) -o $@ -c $(filter %.cpp,$^)
 #----------------------------------------------------------------2end-------------------

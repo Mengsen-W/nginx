@@ -70,7 +70,6 @@ bool CConfig::Load(const char* pconfName) {
       Ltrim(p_confitem->ItemContent);
 
       m_ConfigItemList.push_back(p_confitem);
-      printf("%s and %s\n", p_confitem->ItemName,p_confitem->ItemContent);
     }
   }
   fclose(fp);

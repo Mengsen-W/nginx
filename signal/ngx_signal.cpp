@@ -2,13 +2,14 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-23 21:40:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-23 22:20:13
+ * @Last Modified time: 2020-04-24 21:17:47
  * @Description: 信号处理相关
  */
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "ngx_func.h"
@@ -70,6 +71,13 @@ int ngx_init_signals() {
   return 0;
 }
 
+/*
+ * @ Description: 信号处理函数
+ * @ Parameter:
+ *       signo: 信号号
+ *     siginfo: 信号信息
+ *        void: 自定义指针
+*/
 static void ngx_signal_handler(int signo, siginfo_t *siginfo, void *ucontext) {
   printf("signal coming\n");
   return;
