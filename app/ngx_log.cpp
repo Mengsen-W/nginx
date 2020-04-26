@@ -232,8 +232,6 @@ void ngx_log_init() {
   }
 
   ngx_log.log_level = p_config->GetIntDefault("LogLevel", NGX_LOG_NOTICE);
-  printf("LogLevel = %d\n", ngx_log.log_level);
-  printf("LogsName = %s\n", plogname);
   /* 缺省日志等级为6【注意】 ，如果读失败，就给缺省日志等级 */
 
   /* 只写打开|追加到末尾|文件不存在则创建【这个需要跟第三参数指定文件访问权限】*/

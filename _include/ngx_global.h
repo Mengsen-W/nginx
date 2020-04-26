@@ -26,8 +26,12 @@ extern char **g_os_argv;
 extern char **gp_envmem;
 // 保存 argc
 extern int g_environlen;
+extern size_t g_argvneedmem;
+extern size_t g_envneedmen;
+extern int g_os_argc;
 // 保存进程id
 extern pid_t ngx_pid;
+extern pid_t ngx_parent;
 // 保存结构体
 extern ngx_log_t ngx_log;
 

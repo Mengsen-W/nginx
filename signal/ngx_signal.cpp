@@ -8,8 +8,8 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "ngx_func.h"
@@ -65,7 +65,7 @@ int ngx_init_signals() {
                          sig->signame);
       return -1;
     } else {
-      ngx_log_stderr(0, "sigaction(%s)", sig->signame); /* debug */
+      // ngx_log_stderr(0, "sigaction(%s)", sig->signame); /* debug */
     }
   }
   return 0;
@@ -77,7 +77,7 @@ int ngx_init_signals() {
  *       signo: 信号号
  *     siginfo: 信号信息
  *        void: 自定义指针
-*/
+ */
 static void ngx_signal_handler(int signo, siginfo_t *siginfo, void *ucontext) {
   printf("signal coming\n");
   return;

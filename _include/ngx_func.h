@@ -1,5 +1,6 @@
 ﻿#ifndef __NGX_FUNC_H__
 #define __NGX_FUNC_H__
+#include <stdlib.h>
 
 //函数声明
 void myconf();
@@ -24,5 +25,6 @@ void ngx_log_init();
 void ngx_log_stderr(int err, const char *fmt, ...);
 // 写日志核心函数
 void ngx_log_error_core(int level, int err, const char *fmt, ...);
+void ngx_master_process_cycle();
 #define MYVER "1.2"
 #endif

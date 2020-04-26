@@ -19,9 +19,13 @@
 
 char **g_os_argv = nullptr;
 char **gp_envmem = nullptr;
+size_t g_argvneedmem = 0;
+size_t g_envneedmen = 0;
 int g_environlen = 0;
+int g_os_argc;
 
 pid_t ngx_pid;  //当前进程的pid
+pid_t ngx_parent;
 
 static void freeresource();
 
@@ -29,6 +33,17 @@ int main(int argc, char *argv[]) {
   std::cout << "begin" << std::endl;
 
   ngx_pid = getpid();
+  ngx_parent = getppid();
+
+  g_os_argv = argv;
+  g_argvneedmem = 0;
+  for (int i = 0; i < argc; ++i) {
+    g_argvneedmem += strlen(argv[i]) + 1;
+  }
+  for (int i = 0; environ[i]; ++i) {
+    g_envneedmen += strlen(environ[i]) + 1;
+  }
+  g_os_argc = argc;
   g_os_argv = argv;
 
   // 初始化配置文件
@@ -42,9 +57,6 @@ int main(int argc, char *argv[]) {
   ngx_log_init();
   ngx_init_setproctitle();
   ngx_init_signals();
-
-  // 设定环境函数
-  ngx_setproctitle("nginx: master");
 
   // ngx_log_stderr(1, "invalid option: \"%s\"", argv[0]);
   // ngx_log_stderr(2, "invalid option: %10d", 21);
@@ -61,11 +73,8 @@ int main(int argc, char *argv[]) {
   //   ngx_log_error_core(i, i + 1, "this failed xxx, and put out = %s",
   //   "YYYY");
   // }
+  ngx_master_process_cycle();
 
-  while (1) {
-    sleep(1);
-  }
-  // 释放资源函数
   freeresource();
 
   return 0;

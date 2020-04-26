@@ -41,13 +41,7 @@ void ngx_setproctitle(const char* title) {
   // 计算新标题长度
   size_t ititlelen = strlen(title);
 
-  // 计算argv总长度
-  size_t e_environlen = 0;
-  for (int i = 0; g_os_argv[i]; ++i) {
-    e_environlen += strlen(g_os_argv[i]) + 1;
-  }
-
-  size_t esy = e_environlen + g_environlen;
+  size_t esy = g_argvneedmem + g_envneedmen;
   if (esy <= ititlelen) return;  // 核实长度
 
   // 设置后续命令行参数为空，学的源码可能是冗余设置

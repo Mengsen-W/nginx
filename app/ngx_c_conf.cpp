@@ -70,6 +70,7 @@ bool CConfig::Load(const char* pconfName) {
       Ltrim(p_confitem->ItemContent);
 
       m_ConfigItemList.push_back(p_confitem);
+      printf("config[%s=%s]\n", p_confitem->ItemName, p_confitem->ItemContent);
     }
   }
   fclose(fp);
@@ -89,8 +90,9 @@ char* CConfig::GetString(const char* p_itemname) {
 int CConfig::GetIntDefault(const char* p_itemname, const int def) {
   std::vector<LPCConfItem>::iterator pos;
   for (pos = m_ConfigItemList.begin(); pos != m_ConfigItemList.end(); ++pos) {
-    if (strcasecmp((*pos)->ItemName, p_itemname) == 0)
+    if (strcasecmp((*pos)->ItemName, p_itemname) == 0) {
       return atoi((*pos)->ItemContent);
+    }
   }
 
   return def;
