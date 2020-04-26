@@ -3,7 +3,7 @@
  * @Date: 2020-04-24 19:50:07
  * @Last Modified by: Mengsen.Wang
  * @Last Modified time: 2020-04-24 19:50:28
- * @Description: 子进程
+ * @Description: 创建子进程
  */
 
 #include <errno.h>
