@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "ngx_func.h"
+#include "ngx_macro.h"
 
 // 初始化尽静态成员
 CConfig* CConfig::m_instance = nullptr;
@@ -70,7 +71,7 @@ bool CConfig::Load(const char* pconfName) {
       Ltrim(p_confitem->ItemContent);
 
       m_ConfigItemList.push_back(p_confitem);
-      printf("config[%s=%s]\n", p_confitem->ItemName, p_confitem->ItemContent);
+      printf("[config] %s : %d\n", p_confitem->ItemName, atoi(p_confitem->ItemName));
     }
   }
   fclose(fp);

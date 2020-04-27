@@ -26,5 +26,6 @@ void ngx_log_stderr(int err, const char *fmt, ...);
 // 写日志核心函数
 void ngx_log_error_core(int level, int err, const char *fmt, ...);
 void ngx_master_process_cycle();
+int ngx_daemon();
 #define MYVER "1.2"
 #endif

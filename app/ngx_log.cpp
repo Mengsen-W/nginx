@@ -71,6 +71,10 @@ void ngx_log_stderr(int err, const char *fmt, ...) {
 
   write(STDERR_FILENO, errstr, p - errstr);
 
+  if (ngx_log.fd > STDERR_FILENO) {
+    ngx_log_error_core(NGX_LOG_STDERR, err, (const char *)(p - errstr));
+  }
+
   return;
 }
 

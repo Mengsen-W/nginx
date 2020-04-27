@@ -59,6 +59,8 @@ void ngx_master_process_cycle() {
       strcat(title, g_os_argv[i]); /* 把其他参数放在后面 */
     }
     ngx_setproctitle(title);
+    ngx_log_error_core(NGX_LOG_ERR, 0, "[%s : %P] start running...", title,
+                       ngx_pid);
   }
 
   CConfig *p_config = CConfig::GetInstance();
@@ -106,8 +108,13 @@ static int ngx_spawn_process(int inum, const char *pprocname) {
 }
 
 static void ngx_worker_process_cycle(int inum, const char *pprocname) {
+  ngx_process = NGX_PROCESS_WORKER;
+
   ngx_worker_process_init(inum);
   ngx_setproctitle(pprocname);
+
+  ngx_log_error_core(NGX_LOG_NOTICE, 0, "[%s : %P] start running...", pprocname,
+                     ngx_pid);
 
   // setvbuf(stdout, NULL, _IONBF, 0);
 

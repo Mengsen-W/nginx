@@ -32,7 +32,10 @@ extern int g_os_argc;
 // 保存进程id
 extern pid_t ngx_pid;
 extern pid_t ngx_parent;
+extern int ngx_process;
+extern int ngx_reap;
 // 保存结构体
 extern ngx_log_t ngx_log;
+extern int g_daemonize;
 
 #endif
