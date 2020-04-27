@@ -14,7 +14,7 @@ void Rtrim(char* string) {
   if (string == NULL) return;
 
   len = strlen(string);
-  while (len > 0 && string[len - 1] == ' ') string[len--] = 0;
+  while (len > 0 && string[len - 1] == ' ') string[--len] = 0;
 
   return;
 }
