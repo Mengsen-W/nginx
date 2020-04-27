@@ -36,6 +36,7 @@ DEP_DIR = $(BUILD_ROOT)/app/dep
 #-p是递归创建目录，没有就创建，有就不需要创建了
 $(shell mkdir -p $(LINK_OBJ_DIR))
 $(shell mkdir -p $(DEP_DIR))
+$(shell mkdir -p $($(BUILD_DIR)/logs))
 
 #我们要把目标文件生成到上述目标文件目录去，利用函数addprefix增加个前缀
 #处理后形如 /mnt/hgfs/linux/nginx/app/link_obj/ngx_signal2.o /mnt/hgfs/linux/nginx/app/link_obj/ngx_signal.o
