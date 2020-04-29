@@ -2,13 +2,16 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-29 21:41:35
+ * @Last Modified time: 2020-04-29 22:14:43
  * @Description: 监听套接字结构
  */
 
 #ifndef __NGX_C_SOCKET_H__
 #define __NGX_C_SOCKET_H__
 
+#include <sys/socket.h>
+
+#include <cstdint>
 #include <vector>
 
 #define NGX_LISTEN_BACKLOG 511 /* 监听维护队列 */
@@ -52,13 +55,13 @@ class CSocket {
   virtual ~CSocket();
 
   virtual bool Initialize();
+  int ngx_epoll_init(); /* epoll init */
 
  private:
   bool ngx_open_listening_sockets(); /* 打开监听套接字，支持多个端口 */
   void ngx_close_listening_sockets(); /* 关闭监听套接字 */
   bool setnonblocking(int fd);        /* 设置非阻塞模式 */
   void ReadConf();                    /* 读配置文件 */
-  int ngx_epoll_init();               /* epoll init */
   lpngx_connection_t ngx_get_connection(int isocket); /* 去空闲节点 */
   void ngx_event_accept(lpngx_connection_t oldc);     /* accept */
   int ngx_epoll_add_event(int fd, int readevent, int writeevent,

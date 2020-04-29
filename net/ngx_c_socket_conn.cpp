@@ -1,12 +1,11 @@
 /*
  * @Author: Mengsen.Wang
- * @Date: 2020-04-29 20:43:03
+ * @Date: 2020-04-29 20:42:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-29 21:08:43
+ * @Last Modified time: 2020-04-29 22:13:08
  * @Description: 连接池相关函数
  */
 
-#include <cstdint>
 #include <cstring>
 
 #include "ngx_c_socket.h"
@@ -30,8 +29,8 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
   uintptr_t instance = c->instance;          /* 保存失效状态信息 */
   uint64_t iCurrsequence = c->iCurrsequence; /* 保存序号 */
 
-  memset(c, 0, sizeof(ngx_connection_t)); /* 初始化连接对象 */
-  c->fd = isock;                          /* 绑定监听套接字 */
+  std::memset(c, 0, sizeof(ngx_connection_t)); /* 初始化连接对象 */
+  c->fd = isock;                               /* 绑定监听套接字 */
 
   c->instance = !instance; /* 更换失效位 */
   c->iCurrsequence = iCurrsequence;

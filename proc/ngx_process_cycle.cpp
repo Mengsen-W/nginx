@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-24 19:50:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-24 19:50:28
+ * @Last Modified time: 2020-04-29 22:07:36
  * @Description: 创建子进程
  */
 
@@ -135,6 +135,8 @@ static void ngx_worker_process_init(int inum) {
     ngx_log_error_core(NGX_LOG_ALERT, errno,
                        "ngx_worker_process_init() sigprocmask() filed");
   }
+
+  g_socket.ngx_epoll_init();
 
   return;
 }

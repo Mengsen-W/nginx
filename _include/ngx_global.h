@@ -2,12 +2,14 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 19:04:00
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-15 20:14:51
+ * @Last Modified time: 2020-04-29 22:08:22
  * @Description: 全局变量的设置
  */
 
 #ifndef __NGX_GLOBAL_H__
 #define __NGX_GLOBAL_H__
+
+#include "ngx_c_socket.h"
 
 typedef struct {
   char ItemName[50];
@@ -37,5 +39,7 @@ extern int ngx_reap;
 // 保存结构体
 extern ngx_log_t ngx_log;
 extern int g_daemonize;
+
+extern CSocket g_socket;
 
 #endif

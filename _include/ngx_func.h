@@ -1,5 +1,7 @@
 ﻿#ifndef __NGX_FUNC_H__
 #define __NGX_FUNC_H__
+
+#include <stdio.h>
 #include <stdlib.h>
 
 //函数声明
