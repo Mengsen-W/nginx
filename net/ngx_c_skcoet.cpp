@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-28 21:53:32
+ * @Last Modified time: 2020-04-29 21:54:03
  */
 #include <arpa/inet.h>
 #include <errno.h>
@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stropts.h>
+#include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -23,13 +24,10 @@
 /*
  * @ Description: 构造函数
  */
-CSocket::CSocket() {
-  m_ListenPortCount = 1;
-  return;
-}
+CSocket::CSocket() : m_ListenPortCount(0), m_worker_connections(0) {}
 
 /*
- * @ Description: 构造函数
+ * @ Description: 析构函数
  */
 CSocket::~CSocket() {
   std::vector<lpngx_listening_t>::iterator pos;
@@ -42,11 +40,25 @@ CSocket::~CSocket() {
 }
 
 /*
+ * @ Description: 读配置文件
+ * @ Parameter: void
+ * @ return: void
+ */
+void CSocket::ReadConf() {
+  CConfig *p_config = CConfig::GetInstance();
+  m_worker_connections =
+      p_config->GetIntDefault("worker_connections", m_worker_connections);
+  m_ListenPortCount =
+      p_config->GetIntDefault("listen_port_count", m_ListenPortCount);
+}
+
+/*
  * @ Description: 初始化监听套接字
  * @ Parameter: void
  * @ return: bool
  */
 bool CSocket::Initialize() {
+  ReadConf();
   bool reco = ngx_open_listening_sockets();
   return reco;
 }
@@ -148,4 +160,107 @@ void CSocket::ngx_close_listening_sockets() {
                        m_ListenSocketList[i]->port);
   }
   return;
+}
+
+/*
+ * @ Description: epoll 初始化
+ * @ Parameter: void
+ * @ Returns: int
+ */
+int CSocket::ngx_epoll_init() {
+  // epoll_creat
+  m_epollhandle = epoll_create(m_worker_connections);
+  if (m_epollhandle == -1) {
+    ngx_log_stderr(errno, "CSocket::ngx_epoll_init()->epoll_creat() failed");
+    exit(2);
+  }
+
+  // 连接池
+  m_connection_n = m_worker_connections; /* 记录当前连接池中的连接总数 */
+  /* 每个元素都是一个 ngx_connection_t */
+  m_pconnections =
+      new ngx_connection_t[m_connection_n]; /* new 失败了直接dump吧 */
+
+  int i = m_connection_n;                /* 连接池数量 */
+  lpngx_connection_t next = nullptr;     /* 后继连接 */
+  lpngx_connection_t c = m_pconnections; /* 连接池首地址 */
+  // m_pread_events = new ngx_event_t[m_connection_n];
+  // m_pwrite_events= new ngx_event_t[m_connection_n];
+  // for(int i = 0; i < m_connection_n; ++i){
+  //   m_pconnections[i].instance = 1
+  // }
+
+  do {
+    --i; /* i是数组末尾 */
+
+    c[i].data = next;       /* 设置连接对象的next指针 */
+    c[i].fd = -1;           /* 初始化套接字 */
+    c[i].instance = 1;      /* 设置标志位为-1 */
+    c[i].iCurrsequence = 0; /* 当前序号统一从0开始 */
+
+    next = &c[i]; /* next 指针前移, 最终移动到连接池首 */
+  } while (i);
+
+  m_pfree_connections = next; /* 管理对象的空链表指针指向连接池表头 */
+  m_free_connection_n = m_connection_n; /* 空闲池数目 */
+
+  std::vector<lpngx_listening_t>::iterator pos;
+  for (pos = m_ListenSocketList.begin(); pos != m_ListenSocketList.end();
+       ++pos) {
+    c = ngx_get_connection((*pos)->fd);
+    if (c == nullptr) { /* 失败致命问题 */
+      ngx_log_stderr(errno,
+                     "CSocket::ngx_epoll_init()->ngx_get_connect() failed");
+      exit(2);
+    }
+    c->listening = *(pos);  /* 监听对象相互关联 */
+    (*pos)->connection = c; /* 连接对象相互关联 */
+
+    // rev->accept = 1;
+
+    c->rhandler = &CSocket::ngx_event_accept; /* 设置回调函数 */
+
+    /* 对listen增加监听事件 */
+    if (ngx_epoll_add_event((*pos)->fd, 1, 0, 0, EPOLL_CTL_ADD, c) == -1) {
+      ngx_log_stderr(0,
+                     "CSocket::ngx_epoll_init()->ngx_epoll_add_evect() failed");
+      exit(2);
+    }
+  }
+  return 1;
+}
+
+/*
+ * @ Description: 增加监听事件
+ * @ Parameter:
+ * int fd, int readevent, int writeevent,uint32_t otherflag, uint32_t
+ * eventtype, lpngx_connection_t c
+ * @ Return int
+ */
+int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
+                                 uint32_t otherflag, uint32_t eventtype,
+                                 lpngx_connection_t c) {
+  struct epoll_event ev;
+  memset(&ev, 0, sizeof(epoll_event));
+
+  if (readevent == 1) { /* 注册读事件 */
+    ev.events = EPOLLIN | EPOLLHUP;
+
+    // ev.events |= (ev.events | EPOLLET);
+  } else { /* 其他事件类型 */
+  }
+  if (otherflag != 0) {
+    ev.events |= otherflag;
+  }
+
+  /* 指针的最后一位永远是0 */
+  ev.data.ptr = (void *)((uintptr_t)c | c->instance); /* 用失效位来确定 */
+
+  if (epoll_ctl(m_epollhandle, eventtype, fd, &ev) == -1) {
+    ngx_log_stderr(
+        errno, "CSocekt::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.",
+        fd, readevent, writeevent, otherflag, eventtype);
+    return -1;
+  }
+  return 1;
 }
