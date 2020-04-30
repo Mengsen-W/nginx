@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-24 19:50:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-29 22:07:36
+ * @Last Modified time: 2020-04-30 15:35:24
  * @Description: 创建子进程
  */
 
@@ -119,7 +119,7 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname) {
   // setvbuf(stdout, NULL, _IONBF, 0);
 
   for (;;) {
-    sleep(1);
+    ngx_process_events_and_timers(); /* 处理网络和定时器 */
     // printf("%d sleep\n", inum);
   }
 

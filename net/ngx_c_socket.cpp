@@ -2,8 +2,10 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-29 21:54:03
+ * @Last Modified time: 2020-04-30 18:21:00
  */
+#include "ngx_c_socket.h"
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -17,7 +19,6 @@
 #include <unistd.h>
 
 #include "ngx_c_conf.h"
-#include "ngx_c_socket.h"
 #include "ngx_func.h"
 #include "ngx_macro.h"
 
@@ -195,7 +196,7 @@ int CSocket::ngx_epoll_init() {
 
     c[i].data = next;       /* 设置连接对象的next指针 */
     c[i].fd = -1;           /* 初始化套接字 */
-    c[i].instance = 1;      /* 设置标志位为-1 */
+    c[i].instance = 1;      /* 设置标志位为1 */
     c[i].iCurrsequence = 0; /* 当前序号统一从0开始 */
 
     next = &c[i]; /* next 指针前移, 最终移动到连接池首 */
@@ -223,7 +224,7 @@ int CSocket::ngx_epoll_init() {
     /* 对listen增加监听事件 */
     if (ngx_epoll_add_event((*pos)->fd, 1, 0, 0, EPOLL_CTL_ADD, c) == -1) {
       ngx_log_stderr(0,
-                     "CSocket::ngx_epoll_init()->ngx_epoll_add_evect() failed");
+                     "CSocket::ngx_epoll_init()->ngx_epoll_add_event() failed");
       exit(2);
     }
   }
@@ -249,6 +250,7 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
     // ev.events |= (ev.events | EPOLLET);
   } else { /* 其他事件类型 */
   }
+
   if (otherflag != 0) {
     ev.events |= otherflag;
   }
@@ -258,9 +260,79 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
 
   if (epoll_ctl(m_epollhandle, eventtype, fd, &ev) == -1) {
     ngx_log_stderr(
-        errno, "CSocekt::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.",
+        errno, "CSocket::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.",
         fd, readevent, writeevent, otherflag, eventtype);
     return -1;
+  }
+  return 1;
+}
+
+/*
+ * @ Description: 获取发生的事件消息
+ * @ Parameter: int timer
+ * @ Return: int success 1 failed 0
+ */
+int CSocket::ngx_epoll_process_events(int timer) {
+  int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
+
+  if (events == -1) {     /* 产生错误 */
+    if (errno == EINTR) { /* 信号过来 */
+      ngx_log_error_core(
+          NGX_LOG_INFO, errno,
+          "CSocket::ngx_epoll_process_events()->epoll_wait()->EINTER failed");
+      return 1;
+    } else {
+      ngx_log_error_core(
+          NGX_LOG_ALERT, errno,
+          "CSocket::ngx_epoll_process_events()->epoll_wait()->ERROR failed");
+      return 0;
+    }
+  }
+
+  if (events == 0) {   /* 超时返回 */
+    if (timer != -1) { /* 永久等待 */
+      return 1;        /* 成功 */
+    }
+    ngx_log_error_core(
+        NGX_LOG_ALERT, 0,
+        "CSocket::ngx_epoll_process_events()->epoll_wait()->timeout");
+  }
+
+  lpngx_connection_t c;
+  uintptr_t instance;
+  uint32_t revents;
+  for (int i = 0; i < events; ++i) {
+    c = (lpngx_connection_t)(m_events[i].data.ptr);
+    instance = (uintptr_t)c & 1;
+    c = (lpngx_connection_t)((uintptr_t)c & (uintptr_t)~1);
+
+    if (c->fd == -1) { /* 关闭连接 */
+      ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                         "CSocket::ngx_epoll_process_events()->fd = -1 : %p",
+                         c);
+      continue;
+    }
+
+    if (c->instance != instance) { /* 核对标志位 */
+      ngx_log_error_core(
+          NGX_LOG_DEBUG, 0,
+          "CSocket::ngx_epoll_process_events()->instance failed");
+      continue;
+    }
+
+    revents = m_events[i].events;
+
+    if (revents & (EPOLLERR | EPOLLHUP)) {
+      revents |= EPOLLIN | EPOLLOUT;
+    }
+
+    if (revents & EPOLLIN) {
+      (this->*(c->rhandler))(c); /* 回调 */
+    }
+
+    if (revents & EPOLLOUT) {
+      ngx_log_stderr(errno, "111111111111debug EPOLLOUT");
+    }
   }
   return 1;
 }

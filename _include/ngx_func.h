@@ -21,13 +21,19 @@ void ngx_deleteEnvironment();
 u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt, va_list args);
 // 封装 ngx_vslprintf
 u_char *ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...);
+u_char *ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...);
 // 初始化log文件
 void ngx_log_init();
 // 标准错误打印
 void ngx_log_stderr(int err, const char *fmt, ...);
 // 写日志核心函数
 void ngx_log_error_core(int level, int err, const char *fmt, ...);
+
 void ngx_master_process_cycle();
+
 int ngx_daemon();
+
+void ngx_process_events_and_timers();
+
 #define MYVER "1.2"
 #endif

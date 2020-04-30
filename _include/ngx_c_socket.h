@@ -2,20 +2,21 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-29 22:14:43
+ * @Last Modified time: 2020-04-30 18:22:25
  * @Description: 监听套接字结构
  */
 
 #ifndef __NGX_C_SOCKET_H__
 #define __NGX_C_SOCKET_H__
 
+#include <sys/epoll.h>
 #include <sys/socket.h>
 
 #include <cstdint>
 #include <vector>
 
 #define NGX_LISTEN_BACKLOG 511 /* 监听维护队列 */
-#define NGX_MAX_EVENT 512      /* wait 最多返回的fd数目 */
+#define NGX_MAX_EVENTS 512     /* wait 最多返回的fd数目 */
 
 typedef struct ngx_listening_s ngx_listening_t, *lpngx_listening_t;
 typedef struct ngx_connection_s ngx_connection_t, *lpngx_connection_t;
@@ -34,7 +35,7 @@ struct ngx_connection_s {
   int fd;                      /* 监听套接字 */
   lpngx_listening_t listening; /* 指向本链接的监听套接字 */
 
-  unsigned instance : 1;  /* 失效标志位 0 有效 1 失效 */
+  unsigned instance : 1;  /* 失效标志位 1 有效 0 失效 */
   uint64_t iCurrsequence; /* 序号，每次分配加1 */
 
   struct sockaddr s_sockaddr; /* 保存对方地址 */
@@ -60,13 +61,29 @@ class CSocket {
  private:
   bool ngx_open_listening_sockets(); /* 打开监听套接字，支持多个端口 */
   void ngx_close_listening_sockets(); /* 关闭监听套接字 */
-  bool setnonblocking(int fd);        /* 设置非阻塞模式 */
-  void ReadConf();                    /* 读配置文件 */
+
+  bool setnonblocking(int fd); /* 设置非阻塞模式 */
+
+  void ReadConf(); /* 读配置文件 */
+
   lpngx_connection_t ngx_get_connection(int isocket); /* 去空闲节点 */
-  void ngx_event_accept(lpngx_connection_t oldc);     /* accept */
+  void ngx_free_connection(lpngx_connection_t c);     /* 加空闲节点 */
+  void ngx_close_connection(lpngx_connection_t c);    /* 关闭连接 */
+
+  void ngx_event_accept(lpngx_connection_t oldc);      /* accept回调 */
+  void ngx_wait_request_handler(lpngx_connection_t c); /* 可读回调 */
+
   int ngx_epoll_add_event(int fd, int readevent, int writeevent,
                           uint32_t otherflag, uint32_t eventtype,
                           lpngx_connection_t c); /* 增加事件 */
+
+ public:
+  int ngx_epoll_process_events(int timer); /* 获取事件消息 */
+ private:
+  size_t ngx_sock_ntop(struct sockaddr *sa, int port, u_char *text,
+                       size_t len); /* 转换网络地址 */
+
+  void ngx_close_accepted_connection(lpngx_connection_t c); /* 释放资源 */
 
   int m_ListenPortCount; /* 监听端口数量 */
 
@@ -78,6 +95,9 @@ class CSocket {
 
   lpngx_connection_t m_pconnections;      /* 连接池首地址 */
   lpngx_connection_t m_pfree_connections; /* 空闲状态链表首地址 */
+
+  struct epoll_event
+      m_events[NGX_MAX_EVENTS]; /* 用于在epoll_wait()中承载返回的所发生的事件 */
 
   std::vector<lpngx_listening_t> m_ListenSocketList; /* 监听套接字队列 */
 };

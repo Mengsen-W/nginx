@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-15 17:41:17
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-15 19:51:40
+ * @Last Modified time: 2020-04-30 17:01:40
  * @Description: 打印格式相关
  */
 
@@ -62,8 +62,9 @@ u_char *ngx_vslprintf(u_char *buf, u_char *last, const char *fmt,
 
       while (*fmt >= '0' && *fmt <= '9') { /* 这里已经取完前面的第一个0 了 */
         /* 除了第一个0，剩下的0会在这里跳过 */
-        width = width * 10 + (*fmt++ - '0'); /* %16 -> width = 1 -> width = 16 */
-      }  // while end
+        width =
+            width * 10 + (*fmt++ - '0'); /* %16 -> width = 1 -> width = 16 */
+      }                                  // while end
 
       for (;;) { /* 一些特殊标识会在这里给标记位打标记 */
         switch (*fmt) {
@@ -232,6 +233,23 @@ u_char *ngx_slprintf(u_char *buf, u_char *last, const char *fmt, ...) {
   va_start(args, fmt); /* 使args指向起始的参数 */
   p = ngx_vslprintf(buf, last, fmt, args);
   va_end(args); /* 释放args */
+  return p;
+}
+
+/*
+ * @ Description: 安全的printf()函数
+ * @ Parameter: u_char *buf, size_t max, const char *fmt
+ * @ Returns u_char *
+ */
+u_char *ngx_snprintf(u_char *buf, size_t max, const char *fmt, ...) {
+  /* 类printf()格式化函数，比较安全，max指明了缓冲区结束位置 */
+
+  u_char *p;
+  va_list args;
+
+  va_start(args, fmt);
+  p = ngx_vslprintf(buf, buf + max, fmt, args);
+  va_end(args);
   return p;
 }
 
