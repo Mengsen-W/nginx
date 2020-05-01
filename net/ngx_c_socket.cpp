@@ -2,8 +2,9 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-30 18:21:00
+ * @Last Modified time: 2020-05-01 18:09:27
  */
+
 #include "ngx_c_socket.h"
 
 #include <arpa/inet.h>
@@ -25,7 +26,14 @@
 /*
  * @ Description: 构造函数
  */
-CSocket::CSocket() : m_ListenPortCount(0), m_worker_connections(0) {}
+CSocket::CSocket()
+    : m_ListenPortCount(1),
+      m_worker_connections(1),
+      m_epollhandle(-1),
+      m_pconnections(nullptr),
+      m_pfree_connections(nullptr),
+      m_iLenPkgHeader(sizeof(COMM_PKG_HEADER)),
+      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)) {}
 
 /*
  * @ Description: 析构函数
@@ -37,9 +45,31 @@ CSocket::~CSocket() {
     delete (*pos);
   }
   m_ListenSocketList.clear();
+
+  if (m_pconnections != nullptr) {
+    delete[] m_pconnections;
+  }
+
+  clearMsgRecvQueue();
   return;
 }
 
+/*
+ * @ Description: 清理消息队列
+ * @ Paramater: void
+ * @ Return: void
+ */
+void CSocket::clearMsgRecvQueue() {
+  char *sTmpMsgBuf;
+  CMemory *p_memory = CMemory::GetInstance();
+
+  // 临界问题先不考虑了
+  while (!m_MsgRecvQueue.empty()) {
+    sTmpMsgBuf = m_MsgRecvQueue.front();
+    m_MsgRecvQueue.pop_front();
+    p_memory->FreeMemory(sTmpMsgBuf);
+  }
+}
 /*
  * @ Description: 读配置文件
  * @ Parameter: void
@@ -221,7 +251,7 @@ int CSocket::ngx_epoll_init() {
 
     c->rhandler = &CSocket::ngx_event_accept; /* 设置回调函数 */
 
-    /* 对listen增加监听事件 */
+    /* 对listen增加监听事件 LE模式 */
     if (ngx_epoll_add_event((*pos)->fd, 1, 0, 0, EPOLL_CTL_ADD, c) == -1) {
       ngx_log_stderr(0,
                      "CSocket::ngx_epoll_init()->ngx_epoll_add_event() failed");

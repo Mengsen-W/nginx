@@ -2,11 +2,9 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-29 21:17:17
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-30 17:29:04
+ * @Last Modified time: 2020-05-01 16:38:30
  * @Description: 处理accept
  */
-
-// TODO 未写完
 
 #include <errno.h>
 #include <sys/socket.h>
@@ -105,7 +103,7 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
         &CSocket::ngx_wait_request_handler; /* 设置数据来时的读处理函数 */
 
     /* 客户端应该主动发送第一次的数据，这里将读事件加入epoll监控 */
-    if (ngx_epoll_add_event(s, 1, 0, EPOLLET, EPOLL_CTL_ADD, newc) == -1) {
+    if (ngx_epoll_add_event(s, 1, 0, 0, EPOLL_CTL_ADD, newc) == -1) {
       /* 增加事件失败 */
       ngx_close_connection(newc); /* 回收连接池中的连接*/
       return;
@@ -115,21 +113,4 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
   } while (1);
 
   return;
-}
-
-/*
- * @ Description: 关闭连接
- * @ Parameter: lpngx_connection_t c
- * @ Return: void
- */
-void CSocket::ngx_close_accepted_connection(lpngx_connection_t c) {
-  int fd = c->fd;
-  ngx_free_connection(c);
-  c->fd = -1;
-  if (close(fd) == -1) {
-    ngx_log_error_core(
-        NGX_LOG_ALERT, errno,
-        "CSocket::ngx_close_accepted_connection()->close() failed");
-    return;
-  }
 }

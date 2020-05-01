@@ -2,14 +2,20 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-29 20:42:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-30 17:31:23
+ * @Last Modified time: 2020-05-01 18:01:47
  * @Description: 连接池相关函数
  */
 
+#include <unistd.h>
+
+#include <cerrno>
 #include <cstring>
 
+#include "ngx_c_memory.h"
 #include "ngx_c_socket.h"
+#include "ngx_comm.h"
 #include "ngx_func.h"
+#include "ngx_macro.h"
 
 /*
  * @ Description: 从连接池空闲链表中区节点
@@ -33,11 +39,17 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
   std::memset(c, 0, sizeof(ngx_connection_t)); /* 初始化连接对象 */
   c->fd = isock;                               /* 绑定监听套接字 */
 
+  c->curStat = _PKG_HD_INIT;             /* 设置初始标记位 */
+  c->precvbuf = c->dataHeadInfo;         /* 收包头首地址 */
+  c->irecvlen = sizeof(COMM_PKG_HEADER); /* 指定受数据长度 */
+  c->ifnewrecvMem = false;               /* 不分配内存 */
+  c->pnewMemPointer = nullptr;
+
   c->instance = !instance; /* 更换失效位 */
   c->iCurrsequence = iCurrsequence;
   ++(c->iCurrsequence);
 
-  // wev->write = 1;
+  // wev->write = 1
   return c;
 }
 
@@ -68,7 +80,7 @@ void CSocket::ngx_free_connection(lpngx_connection_t c) {
  * @ Parameter: lpngx_connection_t c
  * @ Return: void
  */
-void CSocekt::ngx_close_connection(lpngx_connection_t c) {
+void CSocket::ngx_close_connection(lpngx_connection_t c) {
   if (close(c->fd) == -1) {
     ngx_log_error_core(NGX_LOG_ALERT, errno,
                        "CSocket::ngx_close_connection()中close(%d)失败!",
