@@ -25,7 +25,6 @@ OBJS = $(SRCS:.cpp=.o)
 DEPS = $(SRCS:.cpp=.d)
 
 #可以指定BIN文件的位置,addprefix是增加前缀函数
-#BIN = /mnt/hgfs/linux/nginx
 BIN := $(addprefix $(BUILD_ROOT)/,$(BIN))
 
 #定义存放ojb文件的目录，目录统一到一个位置才方便后续链接，不然整到各个子目录去，不好链接
