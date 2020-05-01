@@ -71,7 +71,7 @@ bool CConfig::Load(const char* pconfName) {
       Ltrim(p_confitem->ItemContent);
 
       m_ConfigItemList.push_back(p_confitem);
-      printf("[config] %s : %d\n", p_confitem->ItemName, atoi(p_confitem->ItemName));
+      printf("[config] %s : %d\n", p_confitem->ItemName, atoi(p_confitem->ItemContent));
     }
   }
   fclose(fp);
