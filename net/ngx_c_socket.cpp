@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-01 18:09:27
+ * @Last Modified time: 2020-05-02 11:28:26
  */
 
 #include "ngx_c_socket.h"
@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <stropts.h>
@@ -33,7 +34,10 @@ CSocket::CSocket()
       m_pconnections(nullptr),
       m_pfree_connections(nullptr),
       m_iLenPkgHeader(sizeof(COMM_PKG_HEADER)),
-      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)) {}
+      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)),
+      m_iRecvQueueCount(0) {
+  pthread_mutex_init(&m_recvMessageQueueMutex, NULL);
+}
 
 /*
  * @ Description: 析构函数
@@ -51,6 +55,9 @@ CSocket::~CSocket() {
   }
 
   clearMsgRecvQueue();
+
+  pthread_mutex_destroy(&m_recvMessageQueueMutex);
+
   return;
 }
 

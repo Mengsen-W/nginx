@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-01 18:17:09
+ * @Last Modified time: 2020-05-02 11:28:34
  * @Description: 监听套接字结构
  */
 
@@ -83,7 +83,7 @@ class CSocket {
   virtual ~CSocket();
 
   virtual bool Initialize();
-  int ngx_epoll_init(); /* epoll init */
+  int ngx_epoll_init();                    /* epoll init */
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
 
  private:
@@ -117,8 +117,9 @@ class CSocket {
   void ngx_wait_request_handler_proc_plast(
       lpngx_connection_t c); /* 收到一个完整包后处理 */
 
-  void inMsgRecvQueue(char *buf); /* 收到包头后加入消息队列 */
-  void clearMsgRecvQueue();       /* 清空消息队列 */
+  void inMsgRecvQueue(char *buf, int &irmqc); /* 收到包头后加入消息队列 */
+  char *outMsgRecvQueue();                    /* 出消息队列 */
+  void clearMsgRecvQueue();                   /* 清空消息队列 */
 
   int m_ListenPortCount; /* 监听端口数量 */
 
@@ -139,7 +140,9 @@ class CSocket {
 
   std::vector<lpngx_listening_t> m_ListenSocketList; /* 监听套接字队列 */
 
-  std::list<char *> m_MsgRecvQueue; /* 业务队列 */
+  std::list<char *> m_MsgRecvQueue;        /* 业务队列 */
+  int m_iRecvQueueCount;                   /* 接受消息队列大小 */
+  pthread_mutex_t m_recvMessageQueueMutex; /* 收消息队列互斥量 */
 
   // 临时函数
   void tmpoutMsgRecvQueue();

@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-30 17:23:49
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-01 18:17:52
+ * @Last Modified time: 2020-05-02 14:24:51
  * @Description: 读事件回调
  */
 
@@ -11,6 +11,7 @@
 #include <cerrno>
 #include <cstring>
 
+#include "ngx_c_lockmutex.h"
 #include "ngx_c_memory.h"
 #include "ngx_c_socket.h"
 #include "ngx_func.h"
@@ -94,7 +95,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
     /* 但LT模式下一般是来事件才收，所以不该出现这个返回值 */
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
       ngx_log_stderr(errno,
-                     "CSocekt::recvproc()中errno == EAGAIN || errno == "
+                     "CSocket::recvproc()中errno == EAGAIN || errno == "
                      "EWOULDBLOCK");
       return -1;
     }
@@ -102,7 +103,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
     /* 当阻塞于某个慢系统调用的一个进程捕获某个信号且相应信号处理函数返回时
      */
     if (errno == EINTR) {
-      ngx_log_stderr(errno, "CSocekt::recvproc()中errno == EINTR");
+      ngx_log_stderr(errno, "CSocket::recvproc()中errno == EINTR");
       return -1;
     }
 
@@ -120,7 +121,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
       //....一些大家遇到的很普通的错误信息，也可以往这里增加各种，代码要慢慢完善，一步到位，不可能，很多服务器程序经过很多年的完善才比较圆满；
     } else {
       /* 能走到这里的都表示错误希望知道一下是啥错误，我准备打印到屏幕上 */
-      ngx_log_stderr(errno, "CSocekt::recvproc() error");
+      ngx_log_stderr(errno, "CSocket::recvproc() error");
     }
 
     ngx_log_stderr(0, "errno CSocket::recvproc()->recv() filed");
@@ -210,9 +211,10 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c) {
  * @ Return: void
  */
 void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
-  inMsgRecvQueue(c->pnewMemPointer); /* 把这段内存放到消息队列中来 */
+  int irmqc = 0;
+  inMsgRecvQueue(c->pnewMemPointer, irmqc); /* 把这段内存放到消息队列中来 */
 
-  //......这里可能考虑触发业务逻辑，怎么触发业务逻辑，这个代码以后再考虑扩充。。。。。。
+  // g_threadpool.Call(irmqc);
 
   /* 收包状态机的状态恢复为原始态，为收下一个包做准备 */
   c->ifnewrecvMem = false;
@@ -230,17 +232,37 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
  * @ Paramater: char *buf(包的地址)
  * @ Return: void
  */
-void CSocket::inMsgRecvQueue(char *buf) {
+void CSocket::inMsgRecvQueue(char *buf, int &irmqc) {
+  CLock lock(&m_recvMessageQueueMutex);
   m_MsgRecvQueue.push_back(buf);
+  ++m_iRecvQueueCount;
+  irmqc = m_iRecvQueueCount;
 
   // 其他功能待扩充，这里要记住一点，这里的内存都是要释放的
   // 而且逻辑处理应该要引入多线程，所以这里要考虑临界问题
 
   /* 临时在这里调用一下该函数，以防止接收消息队列过大 */
-  tmpoutMsgRecvQueue();  //.....临时，后续会取消这行代码
+  // tmpoutMsgRecvQueue();  //.....临时，后续会取消这行代码
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "get it successful message nice"); /* debug */
+  //  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                      "get it successful message nice"); /* debug */
+  return;
+}
+
+/*
+ * @ Description: 出业务队列
+ * @ Paramater: void
+ * @ Return: char*(队列头指针)
+*/
+char *CSocket::outMsgRecvQueue() {
+  CLock lock(&m_recvMessageQueueMutex);
+  if (m_MsgRecvQueue.empty()) {
+    return nullptr;
+  }
+  char *sTmpMsgBuf = m_MsgRecvQueue.front();
+  m_MsgRecvQueue.pop_front();
+  --m_iRecvQueueCount;
+  return sTmpMsgBuf;
 }
 
 //临时函数，用于将Msg中消息干掉
