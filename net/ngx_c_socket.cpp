@@ -144,13 +144,15 @@ bool CSocket::ngx_open_listening_sockets() {
     serv_addr.sin_port = htons((in_port_t)iport);
 
     if (bind(isock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) {
-      ngx_log_stderr(errno, "CSocket::Initialize()->bind() failed i = %d", i);
+      ngx_log_stderr(errno, "CSocket::Initialize()->bind() failed port = %d",
+                     iport);
       close(isock);
       return false;
     }
 
     if (listen(isock, NGX_LISTEN_BACKLOG) == -1) { /* 监听 */
-      ngx_log_stderr(errno, "CSocket::Initialize()->listen() failed i = %d", i);
+      ngx_log_stderr(errno, "CSocket::Initialize()->listen() failed port = %d",
+                     iport);
       close(isock);
       return false;
     }
@@ -258,6 +260,7 @@ int CSocket::ngx_epoll_init() {
       exit(2);
     }
   }
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_creat() success");
   return 1;
 }
 
@@ -294,6 +297,7 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
         fd, readevent, writeevent, otherflag, eventtype);
     return -1;
   }
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_add success");
   return 1;
 }
 
@@ -304,6 +308,8 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
  */
 int CSocket::ngx_epoll_process_events(int timer) {
   int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
+
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_wait() success");
 
   if (events == -1) {     /* 产生错误 */
     if (errno == EINTR) { /* 信号过来 */
@@ -337,7 +343,7 @@ int CSocket::ngx_epoll_process_events(int timer) {
     c = (lpngx_connection_t)((uintptr_t)c & (uintptr_t)~1);
 
     if (c->fd == -1) { /* 关闭连接 */
-      ngx_log_error_core(NGX_LOG_DEBUG, 0,
+      ngx_log_error_core(NGX_LOG_ALERT, 0,
                          "CSocket::ngx_epoll_process_events()->fd = -1 : %p",
                          c);
       continue;
@@ -345,7 +351,7 @@ int CSocket::ngx_epoll_process_events(int timer) {
 
     if (c->instance != instance) { /* 核对标志位 */
       ngx_log_error_core(
-          NGX_LOG_DEBUG, 0,
+          NGX_LOG_ALERT, 0,
           "CSocket::ngx_epoll_process_events()->instance failed");
       continue;
     }

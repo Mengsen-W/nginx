@@ -59,7 +59,7 @@ void ngx_master_process_cycle() {
       strcat(title, g_os_argv[i]); /* 把其他参数放在后面 */
     }
     ngx_setproctitle(title);
-    ngx_log_error_core(NGX_LOG_ERR, 0, "[%s : %P] start running...", title,
+    ngx_log_error_core(NGX_LOG_INFO, 0, "[%s : %P] start running...", title,
                        ngx_pid);
   }
 

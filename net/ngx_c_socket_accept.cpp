@@ -76,7 +76,7 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
       /* 因为在ngx_get_connection()中已经写日志了，所以这里不需要写日志了 */
       if (close(s) == -1) {
         ngx_log_error_core(NGX_LOG_ALERT, errno,
-                           "CSocket::ngx_event_accept()中close(%d)失败!", s);
+                           "CSocket::ngx_event_accept()中close(%d) failed!", s);
       }
       return;
     }
@@ -112,5 +112,6 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
     break;  //一般就是循环一次就跳出去
   } while (1);
 
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "accept() success");
   return;
 }

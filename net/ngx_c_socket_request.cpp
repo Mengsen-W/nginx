@@ -14,6 +14,7 @@
 #include "ngx_c_memory.h"
 #include "ngx_c_socket.h"
 #include "ngx_func.h"
+#include "ngx_macro.h"
 
 /*
  * @ Description: 读数据回调函数
@@ -238,7 +239,8 @@ void CSocket::inMsgRecvQueue(char *buf) {
   /* 临时在这里调用一下该函数，以防止接收消息队列过大 */
   tmpoutMsgRecvQueue();  //.....临时，后续会取消这行代码
 
-  ngx_log_stderr(0, "get it successful message nice"); /* debug */
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "get it successful message nice"); /* debug */
 }
 
 //临时函数，用于将Msg中消息干掉
