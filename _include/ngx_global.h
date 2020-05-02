@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 19:04:00
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-01 18:12:21
+ * @Last Modified time: 2020-05-02 17:49:03
  * @Description: 全局变量的设置
  */
 
@@ -10,6 +10,7 @@
 #define __NGX_GLOBAL_H__
 
 #include "ngx_c_socket.h"
+#include "ngx_c_threadpool.h"
 
 typedef struct {
   char ItemName[50];
@@ -41,5 +42,6 @@ extern ngx_log_t ngx_log;
 extern int g_daemonize;
 
 extern CSocket g_socket;
+extern CThreadPool g_threadpool;
 
 #endif

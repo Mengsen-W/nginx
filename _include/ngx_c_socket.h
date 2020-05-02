@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 11:28:34
+ * @Last Modified time: 2020-05-02 15:46:50
  * @Description: 监听套接字结构
  */
 
@@ -85,6 +85,7 @@ class CSocket {
   virtual bool Initialize();
   int ngx_epoll_init();                    /* epoll init */
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
+  char *outMsgRecvQueue();                    /* 出消息队列 */
 
  private:
   bool ngx_open_listening_sockets(); /* 打开监听套接字，支持多个端口 */
@@ -118,7 +119,6 @@ class CSocket {
       lpngx_connection_t c); /* 收到一个完整包后处理 */
 
   void inMsgRecvQueue(char *buf, int &irmqc); /* 收到包头后加入消息队列 */
-  char *outMsgRecvQueue();                    /* 出消息队列 */
   void clearMsgRecvQueue();                   /* 清空消息队列 */
 
   int m_ListenPortCount; /* 监听端口数量 */

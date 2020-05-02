@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-24 19:50:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-30 15:35:24
+ * @Last Modified time: 2020-05-02 17:13:25
  * @Description: 创建子进程
  */
 
@@ -123,6 +123,8 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname) {
     // printf("%d sleep\n", inum);
   }
 
+  g_threadpool.StopAll();
+
   return;
 }
 
@@ -135,6 +137,10 @@ static void ngx_worker_process_init(int inum) {
     ngx_log_error_core(NGX_LOG_ALERT, errno,
                        "ngx_worker_process_init() sigprocmask() filed");
   }
+
+  CConfig *p_config = CConfig::GetInstance();
+  int threadnums = p_config->GetIntDefault("ProcMsgRecvWorkThreadCount", 1);
+  if (g_threadpool.Create(threadnums)) exit(-2);
 
   g_socket.ngx_epoll_init();
 

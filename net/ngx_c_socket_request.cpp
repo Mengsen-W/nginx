@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-30 17:23:49
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 14:24:51
+ * @Last Modified time: 2020-05-02 17:37:23
  * @Description: 读事件回调
  */
 
@@ -15,6 +15,7 @@
 #include "ngx_c_memory.h"
 #include "ngx_c_socket.h"
 #include "ngx_func.h"
+#include "ngx_global.h"
 #include "ngx_macro.h"
 
 /*
@@ -214,7 +215,7 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
   int irmqc = 0;
   inMsgRecvQueue(c->pnewMemPointer, irmqc); /* 把这段内存放到消息队列中来 */
 
-  // g_threadpool.Call(irmqc);
+  g_threadpool.Call(irmqc);
 
   /* 收包状态机的状态恢复为原始态，为收下一个包做准备 */
   c->ifnewrecvMem = false;
@@ -253,7 +254,7 @@ void CSocket::inMsgRecvQueue(char *buf, int &irmqc) {
  * @ Description: 出业务队列
  * @ Paramater: void
  * @ Return: char*(队列头指针)
-*/
+ */
 char *CSocket::outMsgRecvQueue() {
   CLock lock(&m_recvMessageQueueMutex);
   if (m_MsgRecvQueue.empty()) {

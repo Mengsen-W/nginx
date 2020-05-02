@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 20:27:51
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-04-29 22:07:14
+ * @Last Modified time: 2020-05-02 17:01:57
  * @Description: 主函数
  */
 
@@ -15,6 +15,7 @@
 
 #include "ngx_c_conf.h"
 #include "ngx_c_socket.h"
+#include "ngx_c_threadpool.h"
 #include "ngx_func.h"  //头文件路径，已经使用gcc -I参数指定了
 #include "ngx_macro.h"
 #include "ngx_signal.h"
@@ -27,6 +28,7 @@ int g_environlen = 0;
 int g_os_argc;
 int g_daemonized;
 CSocket g_socket;
+CThreadPool g_threadpool;
 
 pid_t ngx_pid;  //当前进程的pid
 pid_t ngx_parent;
@@ -78,9 +80,10 @@ int main(int argc, char *argv[]) {
   // ngx_log_stderr(9, "invalid option: %d", 1678);
   // ngx_log_stderr(10, "invalid option: %s , %d", "testInfo", 326);
 
-//   for (int i = 0; i < 9; ++i) {
-//     ngx_log_error_core(i, i + 1, "this failed xxx, and put out = %s", "YYYY");
-//   }
+  //   for (int i = 0; i < 9; ++i) {
+  //     ngx_log_error_core(i, i + 1, "this failed xxx, and put out = %s",
+  //     "YYYY");
+  //   }
   if (p_config->GetIntDefault("Daemon", 0) == 1) {
     int create_daemon_result = ngx_daemon();
     if (create_daemon_result == -1) {

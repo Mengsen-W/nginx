@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 11:28:26
+ * @Last Modified time: 2020-05-02 15:40:24
  */
 
 #include "ngx_c_socket.h"
@@ -77,6 +77,7 @@ void CSocket::clearMsgRecvQueue() {
     p_memory->FreeMemory(sTmpMsgBuf);
   }
 }
+
 /*
  * @ Description: 读配置文件
  * @ Parameter: void
