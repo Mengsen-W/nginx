@@ -84,6 +84,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
   n = recv(c->fd, buff, buflen, 0);
 
   if (n == 0) { /* 客户端断开 */
+    ngx_log_error_core(NGX_LOG_DEBUG, 0, "client close");
     ngx_close_connection(c);
     return -1;
   }

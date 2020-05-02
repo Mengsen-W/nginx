@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 15:40:24
+ * @Last Modified time: 2020-05-02 18:25:12
  */
 
 #include "ngx_c_socket.h"
@@ -209,11 +209,13 @@ void CSocket::ngx_close_listening_sockets() {
  * @ Returns: int
  */
 int CSocket::ngx_epoll_init() {
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "begin ngx_epoll_init()");
   // epoll_creat
   m_epollhandle = epoll_create(m_worker_connections);
   if (m_epollhandle == -1) {
-    ngx_log_stderr(errno, "CSocket::ngx_epoll_init()->epoll_creat() failed");
-    exit(2);
+    ngx_log_error_core(NGX_LOG_ERR, errno,
+                       "CSocket::ngx_epoll_init()->epoll_creat() failed");
+    exit(-2);
   }
 
   // 连接池
@@ -250,9 +252,9 @@ int CSocket::ngx_epoll_init() {
        ++pos) {
     c = ngx_get_connection((*pos)->fd);
     if (c == nullptr) { /* 失败致命问题 */
-      ngx_log_stderr(errno,
-                     "CSocket::ngx_epoll_init()->ngx_get_connect() failed");
-      exit(2);
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::ngx_epoll_init()->ngx_get_connect() failed");
+      exit(-2);
     }
     c->listening = *(pos);  /* 监听对象相互关联 */
     (*pos)->connection = c; /* 连接对象相互关联 */
@@ -263,9 +265,10 @@ int CSocket::ngx_epoll_init() {
 
     /* 对listen增加监听事件 LE模式 */
     if (ngx_epoll_add_event((*pos)->fd, 1, 0, 0, EPOLL_CTL_ADD, c) == -1) {
-      ngx_log_stderr(0,
-                     "CSocket::ngx_epoll_init()->ngx_epoll_add_event() failed");
-      exit(2);
+      ngx_log_error_core(
+          NGX_LOG_ERR, errno,
+          "CSocket::ngx_epoll_init()->ngx_epoll_add_event() failed");
+      exit(-2);
     }
   }
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_creat() success");
@@ -300,9 +303,10 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
   ev.data.ptr = (void *)((uintptr_t)c | c->instance); /* 用失效位来确定 */
 
   if (epoll_ctl(m_epollhandle, eventtype, fd, &ev) == -1) {
-    ngx_log_stderr(
-        errno, "CSocket::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.",
-        fd, readevent, writeevent, otherflag, eventtype);
+    ngx_log_error_core(
+        NGX_LOG_ERR, errno,
+        "CSocket::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.", fd,
+        readevent, writeevent, otherflag, eventtype);
     return -1;
   }
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_add success");
@@ -317,7 +321,6 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
 int CSocket::ngx_epoll_process_events(int timer) {
   int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_wait() success");
 
   if (events == -1) {     /* 产生错误 */
     if (errno == EINTR) { /* 信号过来 */

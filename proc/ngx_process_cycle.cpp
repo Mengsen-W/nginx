@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-24 19:50:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 17:13:25
+ * @Last Modified time: 2020-05-02 20:41:21
  * @Description: 创建子进程
  */
 
@@ -72,7 +72,6 @@ void ngx_master_process_cycle() {
   // 父进程继续
   for (;;) {
     sigsuspend(&set); /* 阻塞在这里等待信号 */
-    printf("coming for\n");
   }
 
   return;
@@ -140,7 +139,7 @@ static void ngx_worker_process_init(int inum) {
 
   CConfig *p_config = CConfig::GetInstance();
   int threadnums = p_config->GetIntDefault("ProcMsgRecvWorkThreadCount", 1);
-  if (g_threadpool.Create(threadnums)) exit(-2);
+  if (g_threadpool.Create(threadnums) == false) exit(-2);
 
   g_socket.ngx_epoll_init();
 

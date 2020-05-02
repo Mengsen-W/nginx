@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-02 14:28:25
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 17:48:17
+ * @Last Modified time: 2020-05-02 20:41:29
  * @Description: 线程池实现
  */
 
@@ -42,8 +42,8 @@ bool CThreadPool::Create(int threadnums) {
   m_iThreadNUm = threadnums;
 
   for (int i = 0; i < m_iThreadNUm; ++i) { /* 创建线程 */
-    pNew = new ThreadItem(this);
-    m_threadVector.push_back(pNew);
+
+    m_threadVector.push_back(pNew = new ThreadItem(this));
 
     err = pthread_create(&pNew->_Handle, NULL, ThreadFunc, pNew);
     if (err != 0) {
@@ -51,7 +51,6 @@ bool CThreadPool::Create(int threadnums) {
                          i);
       return false;
     } else {
-      ngx_log_error_core(NGX_LOG_DEBUG, 0, "create pthread success");
     }
   }
 
@@ -61,7 +60,6 @@ lblfor:
   /* 保证子线程等待到 cond_wait */
   for (iter = m_threadVector.begin(); iter != m_threadVector.end(); ++iter) {
     if ((*iter)->ifrunning == false) {
-      usleep(100 * 1000);
       goto lblfor;
     }
   }
@@ -87,6 +85,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
     ngx_log_error_core(NGX_LOG_DEBUG, 0, "[thread = %d]tid != _Handle", tid);
   }
 
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ThreadFunc() begin");
   while (true) {
     err = pthread_mutex_lock(&m_pthreadMutex);
     if (err != 0)
@@ -115,7 +114,9 @@ void* CThreadPool::ThreadFunc(void* threadData) {
 
     ++pThreadPoolObj->m_iRunningThreadNUm;
 
+    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]begin handle message",tid);
     sleep(5); /* 测试 */
+    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]end handle message",tid);
 
     // 释放消息资源
     p_memory->FreeMemory(jobbuf);
