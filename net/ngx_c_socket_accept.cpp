@@ -47,12 +47,13 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
 
       if (err == ECONNABORTED) /* 连接意外关闭 */
         level = NGX_LOG_ERR;
-      else if (err == EMFILE || err == ENFILE)
+      else if (err == EMFILE || err == ENFILE) {
         /* EMFILE fd 用尽 ENFILE 也是用尽*/
         level = NGX_LOG_CRIT;
 
-      ngx_log_error_core(level, errno,
-                         "CSocket::ngx_event_accept()->accept4() failed");
+        ngx_log_error_core(level, errno,
+                           "CSocket::ngx_event_accept()->accept4() failed");
+      }
       if (use_accept4 && err == ENOSYS) { /* 没有accept4() 函数 */
         use_accept4 = 0;
         continue;

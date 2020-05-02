@@ -125,15 +125,17 @@ bool CSocket::ngx_open_listening_sockets() {
   for (int i = 0; i < m_ListenPortCount; ++i) {
     isock = socket(AF_INET, SOCK_STREAM, 0);
     if (isock == -1) {
-      ngx_log_stderr(errno, "CSocket::Initialize()->socket() failed i = %d", i);
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::Initialize()->socket() failed i = %d", i);
       return false;
     }
 
     int reuseaddr = 1; /* 打开对应的设置项 */
     if (setsockopt(isock, SOL_SOCKET, SO_REUSEADDR, (const void *)&reuseaddr,
                    sizeof(reuseaddr)) == -1) { /* 设置 bind() TIME_WAIT */
-      ngx_log_stderr(errno, "CSocket::Initialize()->setsockopt() failed i = %d",
-                     i);
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::Initialize()->setsockopt() failed i = %d",
+                         i);
       close(isock);
       return false;
     }
@@ -152,15 +154,17 @@ bool CSocket::ngx_open_listening_sockets() {
     serv_addr.sin_port = htons((in_port_t)iport);
 
     if (bind(isock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) {
-      ngx_log_stderr(errno, "CSocket::Initialize()->bind() failed port = %d",
-                     iport);
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::Initialize()->bind() failed port = %d",
+                         iport);
       close(isock);
       return false;
     }
 
     if (listen(isock, NGX_LISTEN_BACKLOG) == -1) { /* 监听 */
-      ngx_log_stderr(errno, "CSocket::Initialize()->listen() failed port = %d",
-                     iport);
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::Initialize()->listen() failed port = %d",
+                         iport);
       close(isock);
       return false;
     }
@@ -320,7 +324,6 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
  */
 int CSocket::ngx_epoll_process_events(int timer) {
   int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
-
 
   if (events == -1) {     /* 产生错误 */
     if (errno == EINTR) { /* 信号过来 */

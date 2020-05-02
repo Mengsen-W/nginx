@@ -96,6 +96,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
     while ((jobbuf = g_socket.outMsgRecvQueue()) == nullptr &&
            m_shutdown == false) { /* 用while防止虚假唤醒 */
       if (pthread->ifrunning == false) pthread->ifrunning = true;
+      ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]pthread wait()", tid);
       pthread_cond_wait(&m_pthreadCond, &m_pthreadMutex);
     }
 
@@ -114,9 +115,9 @@ void* CThreadPool::ThreadFunc(void* threadData) {
 
     ++pThreadPoolObj->m_iRunningThreadNUm;
 
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]begin handle message",tid);
+    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]begin handle message", tid);
     sleep(5); /* 测试 */
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]end handle message",tid);
+    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]end handle message", tid);
 
     // 释放消息资源
     p_memory->FreeMemory(jobbuf);

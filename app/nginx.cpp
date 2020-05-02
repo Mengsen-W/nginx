@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
   ngx_log_init();
   ngx_init_signals();
   ngx_init_setproctitle();
-  g_socket.Initialize();
+  if (g_socket.Initialize() == false) exit(-2);
 
   // ngx_log_stderr(1, "invalid option: \"%s\"", argv[0]);
   // ngx_log_stderr(2, "invalid option: %10d", 21);
