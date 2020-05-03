@@ -213,10 +213,7 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c) {
  * @ Return: void
  */
 void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
-  int irmqc = 0;
-  inMsgRecvQueue(c->pnewMemPointer, irmqc); /* 把这段内存放到消息队列中来 */
-
-  g_threadpool.Call(irmqc);
+  g_threadpool.inMsgRecvQueueAndSingal(c->pnewMemPointer); /* 整个包地址传入 */
 
   /* 收包状态机的状态恢复为原始态，为收下一个包做准备 */
   c->ifnewrecvMem = false;
@@ -226,69 +223,5 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
   c->curStat = _PKG_HD_INIT;
   c->precvbuf = c->dataHeadInfo; /* 设置好收包的位置 */
   c->irecvlen = m_iLenPkgHeader; /* 设置好要接收数据的大小 */
-  return;
-}
-
-/*
- * @ Description: 插入业务队列
- * @ Paramater: char *buf(包的地址)
- * @ Return: void
- */
-void CSocket::inMsgRecvQueue(char *buf, int &irmqc) {
-  CLock lock(&m_recvMessageQueueMutex);
-  m_MsgRecvQueue.push_back(buf);
-  ++m_iRecvQueueCount;
-  irmqc = m_iRecvQueueCount;
-
-  // 其他功能待扩充，这里要记住一点，这里的内存都是要释放的
-  // 而且逻辑处理应该要引入多线程，所以这里要考虑临界问题
-
-  /* 临时在这里调用一下该函数，以防止接收消息队列过大 */
-  // tmpoutMsgRecvQueue();  //.....临时，后续会取消这行代码
-
-  //  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-  //                      "get it successful message nice"); /* debug */
-  return;
-}
-
-/*
- * @ Description: 出业务队列
- * @ Paramater: void
- * @ Return: char*(队列头指针)
- */
-char *CSocket::outMsgRecvQueue() {
-  CLock lock(&m_recvMessageQueueMutex);
-  if (m_MsgRecvQueue.empty()) {
-    return nullptr;
-  }
-  char *sTmpMsgBuf = m_MsgRecvQueue.front();
-  m_MsgRecvQueue.pop_front();
-  --m_iRecvQueueCount;
-  return sTmpMsgBuf;
-}
-
-//临时函数，用于将Msg中消息干掉
-void CSocket::tmpoutMsgRecvQueue() {
-  if (m_MsgRecvQueue.empty()) { /* 没有消息就 */
-    return;
-  }
-
-  int size = m_MsgRecvQueue.size();
-
-  if (size < 1000) { /* 消息不超过1000条就不处理先 */
-    return;
-  }
-
-  //消息达到1000条
-  CMemory *p_memory = CMemory::GetInstance();
-  int cha = size - 500;
-  for (int i = 0; i < cha; ++i) {
-    /* 一次干掉一堆 */
-    char *sTmpMsgBuf = m_MsgRecvQueue.front();
-    /* 返回第一个元素但不检查元素存在与否 */
-    m_MsgRecvQueue.pop_front();
-    /* 移除第一个元素但不返回 */
-    p_memory->FreeMemory(sTmpMsgBuf); /* 释放 */
-  }
   return;
 }

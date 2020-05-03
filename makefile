@@ -18,6 +18,7 @@ clean:
 #-rf：删除文件夹，强制删除
 	rm -rf app/link_obj app/dep nginx.out
 	rm -rf signal/*.gch app/*.gch
+	rm -rf logs/*.log
 
 cleanlog:
 	rm -rf logs/*.log

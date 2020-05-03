@@ -34,10 +34,7 @@ CSocket::CSocket()
       m_pconnections(nullptr),
       m_pfree_connections(nullptr),
       m_iLenPkgHeader(sizeof(COMM_PKG_HEADER)),
-      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)),
-      m_iRecvQueueCount(0) {
-  pthread_mutex_init(&m_recvMessageQueueMutex, NULL);
-}
+      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)) {}
 
 /*
  * @ Description: 析构函数
@@ -56,7 +53,6 @@ CSocket::~CSocket() {
 
   clearMsgRecvQueue();
 
-  pthread_mutex_destroy(&m_recvMessageQueueMutex);
 
   return;
 }

@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 20:27:51
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 17:01:57
+ * @Last Modified time: 2020-05-03 10:54:47
  * @Description: 主函数
  */
 
@@ -14,6 +14,8 @@
 #include <iostream>
 
 #include "ngx_c_conf.h"
+#include "ngx_c_crc32.h"
+#include "ngx_c_memory.h"
 #include "ngx_c_socket.h"
 #include "ngx_c_threadpool.h"
 #include "ngx_func.h"  //头文件路径，已经使用gcc -I参数指定了
@@ -62,6 +64,8 @@ int main(int argc, char *argv[]) {
     ngx_log_stderr(0, "configure failed", "nginx.conf");
     exit(1);
   }
+  CMemory::GetInstance();
+  CCRC32::GetInstance();
 
   // 初始化函数
   ngx_log_init();

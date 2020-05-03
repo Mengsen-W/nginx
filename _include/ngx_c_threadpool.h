@@ -19,12 +19,16 @@ class CThreadPool {
   CThreadPool();
   ~CThreadPool();
 
-  bool Create(int threadNum);
-  void StopAll();
-  void Call(int irmqc);
+  bool Create(int threadNum); /* 创建线程池 */
+  void StopAll();             /* 停止线程池 */
+  void Call();                /* 激发条件量 */
+
+  void inMsgRecvQueueAndSingal(char *buf); /* 加入业务队列 */
 
  private:
-  static void *ThreadFunc(void *threadData);
+  static void *ThreadFunc(void *threadData); /* 子线程入口函数 */
+
+  void clearMsgRecvQueue(); /* 清理消息队列 */
 
   struct ThreadItem {
     pthread_t _Handle;   /* 线程id */
@@ -45,6 +49,9 @@ class CThreadPool {
   time_t m_iLastEmgTime; /* 上次发生线程不够用的时间 */
 
   std::vector<ThreadItem *> m_threadVector; /* 线程容器 */
+
+  std::list<char *> m_MsgRecvQueue; /* 接受消息队列 */
+  int m_iRecvQueueCount;            /* 收消息队列大小 */
 };
 
 #endif

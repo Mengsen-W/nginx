@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-02 14:28:25
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 20:41:29
+ * @Last Modified time: 2020-05-03 11:02:35
  * @Description: 线程池实现
  */
 
@@ -28,7 +28,7 @@ CThreadPool::CThreadPool() : m_iRunningThreadNUm(0), m_iLastEmgTime(0) {}
 /*
  * @ Description: 析构函数
  */
-CThreadPool::~CThreadPool() {}
+CThreadPool::~CThreadPool() { clearMsgRecvQueue(); }
 
 /*
  * @ Description: 创建线程池中的线程
@@ -76,7 +76,6 @@ void* CThreadPool::ThreadFunc(void* threadData) {
   /* 静态成员函数没有this指针 */
   CThreadPool* pThreadPoolObj = pthread->_pThis;
 
-  char* jobbuf = nullptr;
   CMemory* p_memory = CMemory::GetInstance();
   int err;
 
@@ -93,30 +92,28 @@ void* CThreadPool::ThreadFunc(void* threadData) {
           NGX_LOG_ERR, err,
           "CThreadPool::Threadfunc()->pthread_mutex_lock() failed");
 
-    while ((jobbuf = g_socket.outMsgRecvQueue()) == nullptr &&
+    while ((pThreadPoolObj->m_MsgRecvQueue.size() == 0) &&
            m_shutdown == false) { /* 用while防止虚假唤醒 */
       if (pthread->ifrunning == false) pthread->ifrunning = true;
       ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]pthread wait()", tid);
       pthread_cond_wait(&m_pthreadCond, &m_pthreadMutex);
     }
 
-    // 真正有消息会越过while
-    err = pthread_mutex_unlock(&m_pthreadMutex);
-    if (err != 0) {
-      ngx_log_error_core(
-          NGX_LOG_ERR, err,
-          "CThreadPool::Threadfunc()->pthread_mutex_unlock() failed");
-    }
-
     if (m_shutdown) {
-      if (jobbuf != nullptr) p_memory->FreeMemory(jobbuf);
+      pthread_mutex_unlock(&m_pthreadMutex);
       break;
     }
+
+    char* jobbuf = pThreadPoolObj->m_MsgRecvQueue.front();
+    pThreadPoolObj->m_MsgRecvQueue.pop_front();
+    --pThreadPoolObj->m_iRecvQueueCount;
+    pthread_mutex_unlock(&m_pthreadMutex);
 
     ++pThreadPoolObj->m_iRunningThreadNUm;
 
     ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]begin handle message", tid);
     sleep(5); /* 测试 */
+    // g_socket.threadRecvProcFunc(jobbuf);
     ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]end handle message", tid);
 
     // 释放消息资源
@@ -169,10 +166,10 @@ void CThreadPool::StopAll() {
 
 /*
  * @ Description: 激发线程
- * @ Paramater: int irmqc
+ * @ Paramater: void
  * @ Return: void
  */
-void CThreadPool::Call(int irmqc) {
+void CThreadPool::Call() {
   int err = pthread_cond_signal(&m_pthreadCond);
   if (err != 0)
     ngx_log_error_core(NGX_LOG_ALERT, err,
@@ -188,4 +185,51 @@ void CThreadPool::Call(int irmqc) {
   }
 
   return;
+}
+
+/*
+ * @ Description: 入消息队列，触发条件变量
+ * @ Paramater: char *buf(消息队列地址)
+ * @ Return: void
+ */
+
+void CThreadPool::inMsgRecvQueueAndSingal(char* buf) {
+  // mutex
+  int err = pthread_mutex_lock(&m_pthreadMutex);
+  if (err != 0) {
+    ngx_log_error_core(
+        NGX_LOG_ERR, err,
+        "CThreadPool::inMsgRecvQueueAndSingal()->pthread_mutex_lock() failed");
+  }
+
+  m_MsgRecvQueue.push_back(buf); /* 入消息队列 */
+  ++m_iRecvQueueCount;
+
+  // unlock
+  err = pthread_mutex_unlock(&m_pthreadMutex);
+  if (err != 0) {
+    ngx_log_error_core(NGX_LOG_ERR, err,
+                       "CThreadPool::inMsgRecvQueueAndSingal()->pthread_mutex_"
+                       "unlock() failed");
+  }
+
+  Call(); /* 唤醒进程 */
+  return;
+}
+
+/*
+ * @ Description: 清理消息队列
+ * @ Paramater: void
+ * @ Return: void
+ */
+void CThreadPool::clearMsgRecvQueue() {
+  char* sTmpMempoint;
+  CMemory* p_memory = CMemory::GetInstance();
+
+  // 应该不需要互斥了
+  while (!m_MsgRecvQueue.empty()) {
+    sTmpMempoint = m_MsgRecvQueue.front();
+    m_MsgRecvQueue.pop_front();
+    p_memory->FreeMemory(sTmpMempoint);
+  }
 }
