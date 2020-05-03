@@ -10,8 +10,12 @@
 
 #include <arpa/inet.h>
 
+#include <cstring>
+
 #include "ngx_c_crc32.h"
+#include "ngx_c_lockmutex.h"
 #include "ngx_func.h"
+#include "ngx_logiccomm.h"
 #include "ngx_macro.h"
 
 /* 回调处理函数指针 */
@@ -67,10 +71,39 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
 bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
                                 LPSTRUC_MSG_HEADER pMsgHeader, char *pPkgBody,
                                 unsigned short iBodyLength) {
+  if (pPkgBody == nullptr) return false;
+
+  int iRecvLen = sizeof(STRUCT_REGISTER);
+  if (iRecvLen != iBodyLength) return false;
+
+  CLock lock(&pConn->logicPorcMutex);
+
+  LPSTRUCT_REGISTER p_RecvInfo = reinterpret_cast<LPSTRUCT_REGISTER>(pPkgBody);
+
+  // 业务逻辑
   ngx_log_error_core(NGX_LOG_DEBUG, 0,
                      "CLogicSocket::_HandleLogin() successful");
+  // 业务处理结束
+
+  // 服务端回复消息
+  LPCOMM_PKG_HEADER pPkgHeader;
+  CMemory *p_memory = CMemory::GetInstance();
+  CCRC32 *p_crc32 = CCRC32::GetInstance();
+  int iSendLen = sizeof(STRUCT_REGISTER);
+  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
+      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
+  memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
+  pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
+  pPkgHeader->msgCOde = _CMD_LOGIN;
+  pPkgHeader->msgCOde = htons(pPkgHeader->msgCOde);
+  pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
+  LPSTRUCT_REGISTER p_sendInfo = reinterpret_cast<LPSTRUCT_REGISTER>(
+      p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
+  pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
+  pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
   return true;
 }
+
 /*
  * @ Description: 处理消息队列
  * @ Paramater: char *pMsgHeader(业务指针--消息头+包头+包体)

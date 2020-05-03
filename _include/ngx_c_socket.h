@@ -69,6 +69,8 @@ struct ngx_connection_s {
 
   // 连接池状态
   lpngx_connection_t data; /* 后继指针 */
+
+  pthread_mutex_t logicPorcMutex;
 };
 
 // 消息头结构
