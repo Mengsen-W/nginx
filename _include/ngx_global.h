@@ -2,14 +2,14 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-10 19:04:00
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 17:49:03
+ * @Last Modified time: 2020-05-03 14:25:45
  * @Description: 全局变量的设置
  */
 
 #ifndef __NGX_GLOBAL_H__
 #define __NGX_GLOBAL_H__
 
-#include "ngx_c_socket.h"
+#include "ngx_c_slogic.h"
 #include "ngx_c_threadpool.h"
 
 typedef struct {
@@ -41,7 +41,7 @@ extern int ngx_reap;
 extern ngx_log_t ngx_log;
 extern int g_daemonize;
 
-extern CSocket g_socket;
+extern CLogicSocket g_socket;
 extern CThreadPool g_threadpool;
 
 #endif

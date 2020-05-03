@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 15:46:50
+ * @Last Modified time: 2020-05-03 15:42:21
  * @Description: 监听套接字结构
  */
 
@@ -12,6 +12,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 
+#include <atomic>
 #include <cstdint>
 #include <list>
 #include <vector>
@@ -82,9 +83,16 @@ class CSocket {
   CSocket();
   virtual ~CSocket();
 
-  virtual bool Initialize();
-  int ngx_epoll_init();                    /* epoll init */
+  virtual bool Initialize(); /* 主进程初始化监听套接字 */
+
+  virtual void threadRecvProcFunc(char *pMsgBuf); /* 业务处理函数 */
+
+  int ngx_epoll_init();                    /* 子进程epoll init */
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
+
+ protected:
+  size_t m_iLenPkgHeader; /* 包头长度 */
+  size_t m_iLenMsgHeader; /* 消息头长度 */
 
  private:
   bool ngx_open_listening_sockets(); /* 打开监听套接字，支持多个端口 */
@@ -117,10 +125,9 @@ class CSocket {
   void ngx_wait_request_handler_proc_plast(
       lpngx_connection_t c); /* 收到一个完整包后处理 */
 
-  void clearMsgRecvQueue(); /* 清空消息队列 */
+  void clearMsgSendQueue(); /* 清空发送队列 */
 
-  int m_ListenPortCount; /* 监听端口数量 */
-
+  int m_ListenPortCount;    /* 所监听的端口数量 */
   int m_worker_connections; /* worker进程最大连接数 */
 
   int m_epollhandle;       /* 返回的epoll handle */
@@ -130,8 +137,8 @@ class CSocket {
   lpngx_connection_t m_pconnections;      /* 连接池首地址 */
   lpngx_connection_t m_pfree_connections; /* 空闲状态链表首地址 */
 
-  size_t m_iLenPkgHeader; /* 包头长度 */
-  size_t m_iLenMsgHeader; /* 消息头长度 */
+  std::list<char *> m_MsgSendQueue;      /* 发送数据消息队列 */
+  std::atomic<int> m_iSendMsgQueueCount; /* 发消息队列大小 */
 
   struct epoll_event
       m_events[NGX_MAX_EVENTS]; /* 用于在epoll_wait()中承载返回的所发生的事件 */

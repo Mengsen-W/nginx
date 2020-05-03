@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:45
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 18:25:12
+ * @Last Modified time: 2020-05-03 15:43:59
  */
 
 #include "ngx_c_socket.h"
@@ -28,13 +28,16 @@
  * @ Description: 构造函数
  */
 CSocket::CSocket()
-    : m_ListenPortCount(1),
+    : m_iLenPkgHeader(sizeof(COMM_PKG_HEADER)),
+      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)),
+      m_ListenPortCount(1),
       m_worker_connections(1),
       m_epollhandle(-1),
+      m_connection_n(0),
+      m_free_connection_n(0),
       m_pconnections(nullptr),
-      m_pfree_connections(nullptr),
-      m_iLenPkgHeader(sizeof(COMM_PKG_HEADER)),
-      m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)) {}
+      m_pfree_connections(nullptr)
+{}
 
 /*
  * @ Description: 析构函数
@@ -51,25 +54,24 @@ CSocket::~CSocket() {
     delete[] m_pconnections;
   }
 
-  clearMsgRecvQueue();
-
+  clearMsgSendQueue();
 
   return;
 }
 
 /*
- * @ Description: 清理消息队列
+ * @ Description: 清理发送消息队列
  * @ Paramater: void
  * @ Return: void
  */
-void CSocket::clearMsgRecvQueue() {
+void CSocket::clearMsgSendQueue() {
   char *sTmpMsgBuf;
   CMemory *p_memory = CMemory::GetInstance();
 
   // 临界问题先不考虑了
-  while (!m_MsgRecvQueue.empty()) {
-    sTmpMsgBuf = m_MsgRecvQueue.front();
-    m_MsgRecvQueue.pop_front();
+  while (!m_MsgSendQueue.empty()) {
+    sTmpMsgBuf = m_MsgSendQueue.front();
+    m_MsgSendQueue.pop_front();
     p_memory->FreeMemory(sTmpMsgBuf);
   }
 }

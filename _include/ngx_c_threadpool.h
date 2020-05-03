@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-02 14:32:37
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 16:04:02
+ * @Last Modified time: 2020-05-03 15:38:50
  * @Description: 线程池
  */
 
@@ -12,6 +12,7 @@
 #include <pthread.h>
 
 #include <atomic>
+#include <list>
 #include <vector>
 
 class CThreadPool {

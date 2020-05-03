@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-30 17:23:49
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 17:37:23
+ * @Last Modified time: 2020-05-03 11:24:34
  * @Description: 读事件回调
  */
 
@@ -225,3 +225,10 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
   c->irecvlen = m_iLenPkgHeader; /* 设置好要接收数据的大小 */
   return;
 }
+
+/*
+ * @ Description: 处理消息虚函数
+ * @ Parameter: char *pMsgBuf(消息地址)
+ * @ Return: void
+ */
+void CSocket::threadRecvProcFunc(char *pMsgBuf) { return; }

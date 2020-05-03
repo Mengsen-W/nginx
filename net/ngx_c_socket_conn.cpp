@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-29 20:42:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-01 18:01:47
+ * @Last Modified time: 2020-05-03 15:51:10
  * @Description: 连接池相关函数
  */
 
@@ -62,16 +62,17 @@ void CSocket::ngx_free_connection(lpngx_connection_t c) {
   if (c->ifnewrecvMem == true) {
     CMemory::GetInstance()->FreeMemory(c->pnewMemPointer);
     c->pnewMemPointer = NULL;
-    c->ifnewrecvMem = false;  //这行有用？
+    c->ifnewrecvMem = false;
   }
 
-  c->data = m_pfree_connections;  //回收的节点指向原来串起来的空闲链的链头
+  c->data = m_pfree_connections; /* 回收的节点指向原来串起来的空闲链的链头 */
 
   //节点本身也要干一些事
-  ++c->iCurrsequence;  //回收后，该值就增加1,以用于判断某些网络事件是否过期【一被释放就立即+1也是有必要的】
+  ++c->iCurrsequence; /*回收后，该值就增加1,以用于判断某些网络事件是否过期 */
+  /* 【一被释放就立即+1也是有必要的】 */
 
-  m_pfree_connections = c;  //修改 原来的链头使链头指向新节点
-  ++m_free_connection_n;    //空闲连接多1
+  m_pfree_connections = c; /* 修改 原来的链头使链头指向新节点 */
+  ++m_free_connection_n;   /* 空闲连接多1 */
   return;
 }
 

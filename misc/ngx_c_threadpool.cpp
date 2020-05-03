@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-02 14:28:25
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-03 11:02:35
+ * @Last Modified time: 2020-05-03 15:38:18
  * @Description: 线程池实现
  */
 
@@ -111,10 +111,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
 
     ++pThreadPoolObj->m_iRunningThreadNUm;
 
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]begin handle message", tid);
-    sleep(5); /* 测试 */
-    // g_socket.threadRecvProcFunc(jobbuf);
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]end handle message", tid);
+    g_socket.threadRecvProcFunc(jobbuf);
 
     // 释放消息资源
     p_memory->FreeMemory(jobbuf);
