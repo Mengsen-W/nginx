@@ -36,8 +36,7 @@ CSocket::CSocket()
       m_connection_n(0),
       m_free_connection_n(0),
       m_pconnections(nullptr),
-      m_pfree_connections(nullptr)
-{}
+      m_pfree_connections(nullptr) {}
 
 /*
  * @ Description: 析构函数
@@ -322,6 +321,7 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
  */
 int CSocket::ngx_epoll_process_events(int timer) {
   int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_wait()");
 
   if (events == -1) {     /* 产生错误 */
     if (errno == EINTR) { /* 信号过来 */
@@ -379,7 +379,7 @@ int CSocket::ngx_epoll_process_events(int timer) {
     }
 
     if (revents & EPOLLOUT) {
-      ngx_log_stderr(errno, "111111111111debug EPOLLOUT");
+      ngx_log_error_core(NGX_LOG_INFO, errno, "EPOLLOUT");
     }
   }
   return 1;

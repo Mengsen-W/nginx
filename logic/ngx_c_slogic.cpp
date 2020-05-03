@@ -78,11 +78,12 @@ bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
  */
 void CLogicSocket::threadRecvProcFunc(char *pMsgBuf) {
   LPSTRUC_MSG_HEADER pMsgHeader =
-      reinterpret_cast<LPSTRUC_MSG_HEADER>(pMsgBuf); /* 消息头 */
+      reinterpret_cast<LPSTRUC_MSG_HEADER>(pMsgBuf); /* 消息头*/
   LPCOMM_PKG_HEADER pPkgHeader =
-      reinterpret_cast<LPCOMM_PKG_HEADER>(pMsgBuf + m_iLenPkgHeader); /* 包头 */
-  void *pPkgBody = nullptr;                          /* 包体 */
-  unsigned short pkgLen = ntohs(pPkgHeader->pkgLen); /* 包长度 */
+      reinterpret_cast<LPCOMM_PKG_HEADER>(pMsgBuf + m_iLenMsgHeader); /* 包头 */
+  void *pPkgBody; /* 指向包体的指针 */
+  unsigned short pkgLen =
+      ntohs(pPkgHeader->pkgLen);  //客户端指明的包宽度【包头+包体】
 
   if (m_iLenPkgHeader == pkgLen) { /* 没有包体 */
 
@@ -93,8 +94,8 @@ void CLogicSocket::threadRecvProcFunc(char *pMsgBuf) {
 
     pPkgHeader->crc32 = ntohl(pPkgHeader->crc32);
     pPkgBody = static_cast<void *>(pMsgBuf + m_iLenMsgHeader + m_iLenPkgHeader);
-    int calccrc = CCRC32::GetInstance()->Get_CRC(
-        static_cast<unsigned char *>(pPkgBody), pkgLen - m_iLenPkgHeader);
+    int calccrc = CCRC32::GetInstance()->Get_CRC((unsigned char *)pPkgBody,
+                                                 pkgLen - m_iLenPkgHeader);
 
     if (calccrc != pPkgHeader->crc32) { /* 校验错误 */
       ngx_log_error_core(NGX_LOG_WARN, 0,

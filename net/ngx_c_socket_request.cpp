@@ -121,12 +121,20 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
        */
       // do nothing
       //....一些大家遇到的很普通的错误信息，也可以往这里增加各种，代码要慢慢完善，一步到位，不可能，很多服务器程序经过很多年的完善才比较圆满；
-    } else {
-      /* 能走到这里的都表示错误希望知道一下是啥错误，我准备打印到屏幕上 */
-      ngx_log_stderr(errno, "CSocket::recvproc() error");
     }
 
-    ngx_log_stderr(0, "errno CSocket::recvproc()->recv() filed");
+    if (errno == ECONNRESET) {
+      ngx_log_error_core(NGX_LOG_INFO, errno,
+                         "errno CSocket::recvproc()->recv()->client reset");
+      return -1;
+
+    } else {
+      /* 能走到这里的都表示错误希望知道一下是啥错误，我准备打印到屏幕上 */
+      ngx_log_error_core(NGX_LOG_INFO, errno, "CSocket::recvproc() error");
+    }
+
+    ngx_log_error_core(NGX_LOG_INFO, errno,
+                       "errno CSocket::recvproc()->recv() filed");
 
     /* 这种真正的错误就要，直接关闭套接字，释放连接池中连接了 */
     ngx_close_connection(c);
