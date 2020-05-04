@@ -104,7 +104,8 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
         &CSocket::ngx_wait_request_handler; /* 设置数据来时的读处理函数 */
 
     /* 客户端应该主动发送第一次的数据，这里将读事件加入epoll监控 */
-    if (ngx_epoll_add_event(s, 1, 0, 0, EPOLL_CTL_ADD, newc) == -1) {
+    if (ngx_epoll_oper_event(s, EPOLL_CTL_ADD, EPOLLIN | EPOLLHUP, 0, newc) ==
+        -1) {
       /* 增加事件失败 */
       ngx_close_connection(newc); /* 回收连接池中的连接*/
       return;

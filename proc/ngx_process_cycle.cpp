@@ -119,10 +119,15 @@ static void ngx_worker_process_cycle(int inum, const char *pprocname) {
 
   for (;;) {
     ngx_process_events_and_timers(); /* 处理网络和定时器 */
-    // printf("%d sleep\n", inum);
+
+    /*     if (false) {
+          g_stopEvent = 1;
+          break;
+        } */
   }
 
   g_threadpool.StopAll();
+  g_socket.Shutdown_subproc();
 
   return;
 }

@@ -36,6 +36,7 @@ extern int g_os_argc;
 extern pid_t ngx_pid;
 extern pid_t ngx_parent;
 extern int ngx_process;
+// 标记子进程状态
 extern int ngx_reap;
 // 保存结构体
 extern ngx_log_t ngx_log;
@@ -43,5 +44,7 @@ extern int g_daemonize;
 
 extern CLogicSocket g_socket;
 extern CThreadPool g_threadpool;
+
+extern int g_stopEvent;
 
 #endif

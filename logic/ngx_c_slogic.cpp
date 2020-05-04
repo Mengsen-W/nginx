@@ -101,6 +101,8 @@ bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
       p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
   pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
   pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
+  // send 先不写，防止泄漏
+  p_memory->FreeMemory(p_sendbuf);
   return true;
 }
 

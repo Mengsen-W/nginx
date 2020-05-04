@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include "ngx_c_conf.h"
+#include "ngx_c_threadpool.h"
 #include "ngx_func.h"
 #include "ngx_macro.h"
 
@@ -86,6 +87,8 @@ void CSocket::ReadConf() {
       p_config->GetIntDefault("worker_connections", m_worker_connections);
   m_ListenPortCount =
       p_config->GetIntDefault("listen_port_count", m_ListenPortCount);
+  m_RecyConnectionWaitTime = p_config->GetIntDefault("Sock_RecyConnectionWait",
+                                                     m_RecyConnectionWaitTime);
 }
 
 /*
@@ -209,6 +212,7 @@ void CSocket::ngx_close_listening_sockets() {
  * @ Parameter: void
  * @ Returns: int
  */
+// TODO modify
 int CSocket::ngx_epoll_init() {
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "begin ngx_epoll_init()");
   // epoll_creat
@@ -219,62 +223,108 @@ int CSocket::ngx_epoll_init() {
     exit(-2);
   }
 
-  // 连接池
-  m_connection_n = m_worker_connections; /* 记录当前连接池中的连接总数 */
-  /* 每个元素都是一个 ngx_connection_t */
-  m_pconnections =
-      new ngx_connection_t[m_connection_n]; /* new 失败了直接dump吧 */
-
-  int i = m_connection_n;                /* 连接池数量 */
-  lpngx_connection_t next = nullptr;     /* 后继连接 */
-  lpngx_connection_t c = m_pconnections; /* 连接池首地址 */
-  // m_pread_events = new ngx_event_t[m_connection_n];
-  // m_pwrite_events= new ngx_event_t[m_connection_n];
-  // for(int i = 0; i < m_connection_n; ++i){
-  //   m_pconnections[i].instance = 1
-  // }
-
-  do {
-    --i; /* i是数组末尾 */
-
-    c[i].data = next;       /* 设置连接对象的next指针 */
-    c[i].fd = -1;           /* 初始化套接字 */
-    c[i].instance = 1;      /* 设置标志位为1 */
-    c[i].iCurrsequence = 0; /* 当前序号统一从0开始 */
-
-    next = &c[i]; /* next 指针前移, 最终移动到连接池首 */
-  } while (i);
-
-  m_pfree_connections = next; /* 管理对象的空链表指针指向连接池表头 */
-  m_free_connection_n = m_connection_n; /* 空闲池数目 */
+  initConnection();
 
   std::vector<lpngx_listening_t>::iterator pos;
   for (pos = m_ListenSocketList.begin(); pos != m_ListenSocketList.end();
        ++pos) {
-    c = ngx_get_connection((*pos)->fd);
-    if (c == nullptr) { /* 失败致命问题 */
-      ngx_log_error_core(NGX_LOG_ERR, errno,
-                         "CSocket::ngx_epoll_init()->ngx_get_connect() failed");
-      exit(-2);
+    lpngx_connection_t p_Conn =
+        ngx_get_connection((*pos)->fd);  //从连接池中获取一个空闲连接对象
+    if (p_Conn == NULL) {
+      //这是致命问题，刚开始怎么可能连接池就为空呢？
+      ngx_log_stderr(errno,
+                     "CSocekt::ngx_epoll_init()中ngx_get_connection()失败.");
+      exit(
+          2);  //这是致命问题了，直接退，资源由系统释放吧，这里不刻意释放了，比较麻烦
     }
-    c->listening = *(pos);  /* 监听对象相互关联 */
-    (*pos)->connection = c; /* 连接对象相互关联 */
+    p_Conn->listening =
+        (*pos);  //连接对象 和监听对象关联，方便通过连接对象找监听对象
+    (*pos)->connection =
+        p_Conn;  //监听对象 和连接对象关联，方便通过监听对象找连接对象
 
-    // rev->accept = 1;
+    // rev->accept = 1; //监听端口必须设置accept标志为1 ，这个是否有必要，再研究
 
-    c->rhandler = &CSocket::ngx_event_accept; /* 设置回调函数 */
+    //对监听端口的读事件设置处理方法，因为监听端口是用来等对方连接的发送三路握手的，所以监听端口关心的就是读事件
+    p_Conn->rhandler = &CSocket::ngx_event_accept;
 
-    /* 对listen增加监听事件 LE模式 */
-    if (ngx_epoll_add_event((*pos)->fd, 1, 0, 0, EPOLL_CTL_ADD, c) == -1) {
-      ngx_log_error_core(
-          NGX_LOG_ERR, errno,
-          "CSocket::ngx_epoll_init()->ngx_epoll_add_event() failed");
-      exit(-2);
+    //往监听socket上增加监听事件，从而开始让监听端口履行其职责【如果不加这行，虽然端口能连上，但不会触发ngx_epoll_process_events()里边的epoll_wait()往下走】
+    /*if(ngx_epoll_add_event((*pos)->fd,       //socekt句柄
+                            1,0,
+       //读，写【只关心读事件，所以参数2：readevent=1,而参数3：writeevent=0】 0,
+       //其他补充标记 EPOLL_CTL_ADD,   //事件类型【增加，还有删除/修改】 p_Conn
+       //连接池中的连接 ) == -1)
+                            */
+    if (ngx_epoll_oper_event(
+            (*pos)->fd,     // socekt句柄
+            EPOLL_CTL_ADD,  //事件类型，这里是增加
+            EPOLLIN |
+                EPOLLRDHUP,  //标志，这里代表要增加的标志,EPOLLIN：可读，EPOLLRDHUP：TCP连接的远端关闭或者半关闭
+            0,      //对于事件类型为增加的，不需要这个参数
+            p_Conn  //连接池中的连接
+            ) == -1) {
+      exit(2);  //有问题，直接退出，日志 已经写过了
     }
-  }
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_creat() success");
+  }  // end for
   return 1;
 }
+
+// TODO undo
+// bool CSocket::Initialize_subproc() {
+//   //发消息互斥量初始化
+//   if (pthread_mutex_init(&m_sendMessageQueueMutex, NULL) != 0) {
+//     ngx_log_stderr(0,
+//                    "CSocekt::Initialize()中pthread_mutex_init(&m_"
+//                    "sendMessageQueueMutex)失败.");
+//     return false;
+//   }
+//   //连接相关互斥量初始化
+//   if (pthread_mutex_init(&m_connectionMutex, NULL) != 0) {
+//     ngx_log_stderr(
+//         0,
+//         "CSocekt::Initialize()中pthread_mutex_init(&m_connectionMutex)失败.");
+//     return false;
+//   }
+//   //连接回收队列相关互斥量初始化
+//   if (pthread_mutex_init(&m_recyconnqueueMutex, NULL) != 0) {
+//     ngx_log_stderr(0,
+//                    "CSocekt::Initialize()中pthread_mutex_init(&m_"
+//                    "recyconnqueueMutex)失败.");
+//     return false;
+//   }
+
+//   //初始化发消息相关信号量，信号量用于进程/线程 之间的同步，虽然
+//   //互斥量[pthread_mutex_lock]和
+//   //条件变量[pthread_cond_wait]都是线程之间的同步手段，但 这里用信号量实现 则
+//   //更容易理解，更容易简化问题，使用书写的代码短小且清晰；
+//   //第二个参数=0，表示信号量在线程之间共享，确实如此
+//   //，如果非0，表示在进程之间共享
+//   //第三个参数=0，表示信号量的初始值，为0时，调用sem_wait()就会卡在那里卡着
+//   if (sem_init(&m_semEventSendQueue, 0, 0) == -1) {
+//     ngx_log_stderr(
+//         0, "CSocekt::Initialize()中sem_init(&m_semEventSendQueue,0,0)失败.");
+//     return false;
+//   }
+
+//   //创建线程
+//   int err;
+//   /*ThreadItem *pSendQueue;
+//   m_threadVector.push_back(pSendQueue = new ThreadItem(this)); //创建
+//   一个新线程对象 并入到容器中 err = pthread_create(&pSendQueue->_Handle,
+//   NULL, ServerSendQueueThread,pSendQueue);
+//   //创建线程，错误不返回到errno，一般返回错误码 if(err != 0)
+//   {
+//       return false;
+//   }*/
+//   //---
+//   ThreadItem *pRecyconn;
+//   m_threadVector.push_back(pRecyconn = new ThreadItem(this));
+//   err = pthread_create(&pRecyconn->_Handle, NULL, ServerRecyConnectionThread,
+//                        pRecyconn);
+//   if (err != 0) {
+//     return false;
+//   }
+//   return true;
+// }
 
 /*
  * @ Description: 增加监听事件
@@ -283,6 +333,7 @@ int CSocket::ngx_epoll_init() {
  * eventtype, lpngx_connection_t c
  * @ Return int
  */
+// TODO delete
 int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
                                  uint32_t otherflag, uint32_t eventtype,
                                  lpngx_connection_t c) {
@@ -311,6 +362,40 @@ int CSocket::ngx_epoll_add_event(int fd, int readevent, int writeevent,
     return -1;
   }
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_add success");
+  return 1;
+}
+
+/*
+ * @ Description: 增加事件
+ * @ Parameter:
+ * int fd(socket fd), uint32_t eventtype, uint32_t flag, int bcaction,
+ * int bcaction, lpngx_connection_t pConn
+ * @ Return int
+ */
+int CSocket::ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag,
+                                  int bcaction, lpngx_connection_t pConn) {
+  struct epoll_event ev;
+  memset(&ev, 0, sizeof(ev));
+
+  if (eventtype == EPOLL_CTL_ADD) {
+    //红黑树从无到有增加节点
+    ev.data.ptr = (void *)pConn;
+    ev.events = flag;
+    pConn->events = flag;
+  } else if (eventtype == EPOLL_CTL_MOD) {
+    //节点已经在红黑树中，修改节点的事件信息
+  } else {
+    //删除红黑树中节点，目前没这个需求，所以将来再扩展
+    return 1;  //先直接返回1表示成功
+  }
+
+  if (epoll_ctl(m_epollhandle, eventtype, fd, &ev) == -1) {
+    ngx_log_error_core(
+        NGX_LOG_ERR, errno,
+        "CSocekt::ngx_epoll_oper_event()中epoll_ctl[%d,%ud,%ud,%d] failed", fd,
+        eventtype, flag, bcaction);
+    return -1;
+  }
   return 1;
 }
 
@@ -383,4 +468,31 @@ int CSocket::ngx_epoll_process_events(int timer) {
     }
   }
   return 1;
+}
+
+/*
+ * @ Description: 回收线程
+ */
+void CSocket::Shutdown_subproc() {
+  /* 通过 shutdown 开关 */
+  std::vector<ThreadItem *>::iterator iter;
+  for (iter = m_threadVector.begin(); iter != m_threadVector.end(); iter++) {
+    pthread_join((*iter)->_Handle, NULL);
+  }
+
+  //释放一下new出来的ThreadItem
+  for (iter = m_threadVector.begin(); iter != m_threadVector.end(); iter++) {
+    if (*iter) delete *iter;
+  }
+  m_threadVector.clear();
+
+  //(3)队列相关
+  clearMsgSendQueue();
+  clearconnection();
+
+  //(4)多线程相关
+  pthread_mutex_destroy(&m_connectionMutex);  //连接相关互斥量释放
+  pthread_mutex_destroy(&m_sendMessageQueueMutex);  //发消息互斥量释放
+  pthread_mutex_destroy(&m_recyconnqueueMutex);  //连接回收队列相关的互斥量释放
+  // sem_destroy(&m_semEventSendQueue);  //发消息相关线程信号量释放
 }

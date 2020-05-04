@@ -37,6 +37,7 @@ pid_t ngx_pid;  //当前进程的pid
 pid_t ngx_parent;
 int ngx_process;
 int ngx_reap;
+int g_stopEvent;
 
 static void freeresource();
 
@@ -58,6 +59,8 @@ int main(int argc, char *argv[]) {
   ngx_log.fd = -1;
   ngx_process = NGX_PROCESS_MASTER;
   ngx_reap = 0;
+
+  g_stopEvent = 0;
 
   // 初始化配置文件
   CConfig *p_config = CConfig::GetInstance();

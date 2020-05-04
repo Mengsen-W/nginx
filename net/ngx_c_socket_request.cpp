@@ -7,6 +7,7 @@
  */
 
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstring>
@@ -84,8 +85,11 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
   n = recv(c->fd, buff, buflen, 0);
 
   if (n == 0) { /* 客户端断开 */
+    if (close((c->fd) == -1))
+      ngx_log_error_core(NGX_LOG_ALERT, errno,
+                         "CSocket::recvproc()->close(%d) failed", c->fd);
     ngx_log_error_core(NGX_LOG_DEBUG, 0, "client close");
-    ngx_close_connection(c);
+    inRecyConnectQueue(c);
     return -1;
   }
   if (n < 0) { /* 这被认为有错误发生 */
@@ -137,7 +141,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
                        "errno CSocket::recvproc()->recv() filed");
 
     /* 这种真正的错误就要，直接关闭套接字，释放连接池中连接了 */
-    ngx_close_connection(c);
+    inRecyConnectQueue(c);
     return -1;
   }
 
@@ -186,9 +190,8 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c) {
         (char *)p_memory->AllocMemory(m_iLenMsgHeader + e_pkgLen, false);
     /* 分配内存【长度是 消息头长度  + 包头长度 + */
     /* 包体长度】，最后参数先给false，表示内存不需要memset */
-    c->ifnewrecvMem = true;
     /* 标记我们new了内存，将来在ngx_free_connection()要回收的 */
-    c->pnewMemPointer = pTmpBuffer;  //内存开始指针
+    c->psendMemPointer = pTmpBuffer;  //数据内存开始指针
 
     // a)先填写消息头内容
     LPSTRUC_MSG_HEADER ptmpMsgHeader = (LPSTRUC_MSG_HEADER)pTmpBuffer;
@@ -220,17 +223,16 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c) {
  * @ Parameter: lpngx_connect_t c
  * @ Return: void
  */
-void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t c) {
-  g_threadpool.inMsgRecvQueueAndSingal(c->pnewMemPointer); /* 整个包地址传入 */
+void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t p_Conn) {
+  g_threadpool.inMsgRecvQueueAndSingal(
+      p_Conn->precvMemPointer); /* 整个数据包地址传入 */
 
-  /* 收包状态机的状态恢复为原始态，为收下一个包做准备 */
-  c->ifnewrecvMem = false;
   /* 内存不再需要释放，收完整了包，由inMsgRecvQueue()移入消息队列 */
   /* 那么释放内存就属于业务逻辑去干，不需要回收连接到连接池中干了 */
-  c->pnewMemPointer = NULL;
-  c->curStat = _PKG_HD_INIT;
-  c->precvbuf = c->dataHeadInfo; /* 设置好收包的位置 */
-  c->irecvlen = m_iLenPkgHeader; /* 设置好要接收数据的大小 */
+  p_Conn->precvMemPointer = NULL;
+  p_Conn->curStat = _PKG_HD_INIT;
+  p_Conn->precvbuf = p_Conn->dataHeadInfo; /* 设置好收包的位置 */
+  p_Conn->irecvlen = m_iLenPkgHeader; /* 设置好要接收数据的大小 */
   return;
 }
 
