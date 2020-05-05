@@ -24,7 +24,7 @@
  */
 void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
   struct sockaddr mysockaddr;
-  socklen_t socklen;
+  socklen_t socklen = sizeof(mysockaddr);
   int err;
   int level;
   int s;
@@ -40,7 +40,10 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
 
     if (s == -1) {
       err = errno;
-      if (err == EAGAIN) return; /* listen fd 设置非阻塞但是却没有连接 */
+      if (err == EAGAIN) {
+        return; /* listen fd 设置非阻塞但是却没有连接 */
+        ngx_log_error_core(NGX_LOG_NOTICE, err, "CSocket::ngx_event_accept()");
+      }
       /* 监听了listenfd 的可读所以一般不会出现这种问题 */
 
       level = NGX_LOG_ALERT;
@@ -51,7 +54,7 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
         /* EMFILE fd 用尽 ENFILE 也是用尽*/
         level = NGX_LOG_CRIT;
 
-        ngx_log_error_core(level, errno,
+        ngx_log_error_core(level, err,
                            "CSocket::ngx_event_accept()->accept4() failed");
       }
       if (use_accept4 && err == ENOSYS) { /* 没有accept4() 函数 */
@@ -61,10 +64,20 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
 
       if (err == ECONNABORTED) {
         //具体实现先不写
+        ngx_log_error_core(level, err,
+                           "CSocket::ngx_event_accept()->accept4() failed");
       }
 
       if (err == EMFILE || err == ENFILE) {
         // 具体实现先不写
+        ngx_log_error_core(level, err,
+                           "CSocket::ngx_event_accept()->accept4() failed");
+      } else {
+        ngx_log_error_core(
+            level, err,
+            "CSocket::ngx_event_accept()->accept4() Parameter[fd = "
+            "%d,sockdaddr = %d, socklen = %d, flag = %d ] failed",
+            oldc->fd, &mysockaddr, &socklen, SOCK_NONBLOCK);
       }
       return; /* 有错误直接返回 */
     }
@@ -98,13 +111,12 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
     }
 
     newc->listening = oldc->listening; /* 连接对象 */
-    newc->w_ready = 1; /* 标记可以写，新连接写事件肯定是ready的 */
 
     newc->rhandler =
         &CSocket::ngx_wait_request_handler; /* 设置数据来时的读处理函数 */
 
     /* 客户端应该主动发送第一次的数据，这里将读事件加入epoll监控 */
-    if (ngx_epoll_oper_event(s, EPOLL_CTL_ADD, EPOLLIN | EPOLLHUP, 0, newc) ==
+    if (ngx_epoll_oper_event(s, EPOLL_CTL_ADD, EPOLLIN | EPOLLRDHUP, 0, newc) ==
         -1) {
       /* 增加事件失败 */
       ngx_close_connection(newc); /* 回收连接池中的连接*/

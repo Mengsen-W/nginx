@@ -43,6 +43,7 @@ struct ngx_connection_s {
   ngx_connection_s();
   virtual ~ngx_connection_s(); /* 析构函数 */
 
+  // 分配连接池单独一个线程
   void GetOneToUse();  /* 分配出去的时候初始化一些内容 */
   void PutOneToFree(); /* 回收回来的时候做一些事情 */
 
@@ -107,9 +108,11 @@ class CSocket {
 
   virtual void threadRecvProcFunc(char *pMsgBuf); /* 业务处理函数 */
 
+  virtual bool Initialize_subproc(); /* 初始化函数[子进程中执行] */
+  virtual void Shutdown_subproc();   /* 清理子线程 */
+
   int ngx_epoll_init();                    /* 子进程epoll init */
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
-  void Shutdown_subproc();                 /* 清理子线程 */
 
  protected:
   size_t m_iLenPkgHeader; /* 包头长度 */
@@ -138,7 +141,7 @@ class CSocket {
 
   void initConnection();  /* 初始化连接池 */
   void clearconnection(); /* 立即回收连接池 */
-  void *inRecyConnectQueue(lpngx_connection_t pConn); /* 延迟回收 */
+  void inRecyConnectQueue(lpngx_connection_t pConn); /* 延迟回收 */
 
   lpngx_connection_t ngx_get_connection(int isocket); /* 去空闲节点 */
   void ngx_free_connection(lpngx_connection_t c);     /* 加空闲节点 */
@@ -150,10 +153,6 @@ class CSocket {
   int ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag,
                            int bcaction,
                            lpngx_connection_t pConn); /* 操作事件 */
-
-  int ngx_epoll_add_event(int fd, int readevent, int writeevent,
-                          uint32_t otherflag, uint32_t eventtype,
-                          lpngx_connection_t c); /* 增加事件 */
 
   size_t ngx_sock_ntop(struct sockaddr *sa, int port, u_char *text,
                        size_t len); /* 转换网络地址 */
@@ -174,7 +173,6 @@ class CSocket {
 
   int m_epollhandle;       /* 返回的epoll handle */
   int m_connection_n;      /* 当前连接池中连接总数 */
-  int m_free_connection_n; /* 可用连接数 */
 
   std::vector<ThreadItem *> m_threadVector; /* 线程容器*/
   pthread_mutex_t m_sendMessageQueueMutex;  /* 发消息队列互斥量 */

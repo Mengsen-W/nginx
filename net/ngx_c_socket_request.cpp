@@ -47,7 +47,7 @@ void CSocket::ngx_wait_request_handler(lpngx_connection_t c) {
       /* 包头收完整了 */
       ngx_wait_request_handler_proc_p1(c);
     } else {                        /* 仍然不完整 */
-      c->curStat = _PKG_HD_RECVING; /* 没必要 */
+      // c->curStat = _PKG_HD_RECVING; /* 没必要 */
       c->precvbuf = c->precvbuf + reco;
       c->irecvlen = c->irecvlen - reco;
     }
@@ -100,16 +100,17 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
     /* 因为ET模式下是不停的recv肯定有一个时刻收到这个errno */
     /* 但LT模式下一般是来事件才收，所以不该出现这个返回值 */
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      ngx_log_stderr(errno,
-                     "CSocket::recvproc()中errno == EAGAIN || errno == "
-                     "EWOULDBLOCK");
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::recvproc()中errno == EAGAIN || errno == "
+                         "EWOULDBLOCK");
       return -1;
     }
 
     /* 当阻塞于某个慢系统调用的一个进程捕获某个信号且相应信号处理函数返回时
      */
     if (errno == EINTR) {
-      ngx_log_stderr(errno, "CSocket::recvproc()中errno == EINTR");
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::recvproc()中errno == EINTR");
       return -1;
     }
 
@@ -137,8 +138,10 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
       ngx_log_error_core(NGX_LOG_INFO, errno, "CSocket::recvproc() error");
     }
 
-    ngx_log_error_core(NGX_LOG_INFO, errno,
-                       "errno CSocket::recvproc()->recv() filed");
+    if (close(c->fd)) {
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "errno CSocket::recvproc()->close() filed");
+    }
 
     /* 这种真正的错误就要，直接关闭套接字，释放连接池中连接了 */
     inRecyConnectQueue(c);
@@ -147,6 +150,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
 
   /* 能走到这里的，就认为收到了有效数据 */
 
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_recvpro() success");
   return n; /* 返回收到的字节数 */
 }
 
@@ -191,7 +195,7 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c) {
     /* 分配内存【长度是 消息头长度  + 包头长度 + */
     /* 包体长度】，最后参数先给false，表示内存不需要memset */
     /* 标记我们new了内存，将来在ngx_free_connection()要回收的 */
-    c->psendMemPointer = pTmpBuffer;  //数据内存开始指针
+    c->precvMemPointer = pTmpBuffer;  //数据内存开始指针
 
     // a)先填写消息头内容
     LPSTRUC_MSG_HEADER ptmpMsgHeader = (LPSTRUC_MSG_HEADER)pTmpBuffer;
@@ -215,6 +219,8 @@ void CSocket::ngx_wait_request_handler_proc_p1(lpngx_connection_t c) {
     }
   }
 
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "ngx_wait_request_handle_proc_p1() success");
   return;
 }
 
@@ -233,6 +239,7 @@ void CSocket::ngx_wait_request_handler_proc_plast(lpngx_connection_t p_Conn) {
   p_Conn->curStat = _PKG_HD_INIT;
   p_Conn->precvbuf = p_Conn->dataHeadInfo; /* 设置好收包的位置 */
   p_Conn->irecvlen = m_iLenPkgHeader; /* 设置好要接收数据的大小 */
+  ngx_log_error_core(NGX_LOG_DEBUG,0,"ngx_wait_request_handler_proc_plast() success");
   return;
 }
 

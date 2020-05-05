@@ -115,9 +115,11 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
   if (!m_freeconnectionList.empty()) { /* 空闲列表有位置 */
     lpngx_connection_t p_Conn = m_freeconnectionList.front();
     m_freeconnectionList.pop_front();
-    --m_free_connection_n;
     p_Conn->GetOneToUse();
+    --m_free_connection_n;
     p_Conn->fd = isock;
+    ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                       "CSocket::ngx_get_connection() is empty success");
     return p_Conn;
   }
 
@@ -130,22 +132,9 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
   m_connectionList.push_back(p_Conn);
   ++m_total_connection_n;
   p_Conn->fd = isock;
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CSocket::ngx_get_connection() not empty success");
   return p_Conn;
-}
-
-/*
- * @ Description: 清理连接池
- */
-void CSocket::clearconnection() {
-  lpngx_connection_t p_Conn;
-  CMemory *p_memory = CMemory::GetInstance();
-
-  while (!m_connectionList.empty()) {
-    p_Conn = m_connectionList.front();
-    m_connectionList.pop_front();
-    p_Conn->~ngx_connection_t();
-    p_memory->FreeMemory(p_Conn);
-  }
 }
 
 /*
@@ -166,6 +155,7 @@ void CSocket::ngx_free_connection(lpngx_connection_t pConn) {
   //空闲连接数+1
   ++m_free_connection_n;
 
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "free connection success");
   return;
 }
 
@@ -175,13 +165,12 @@ void CSocket::ngx_free_connection(lpngx_connection_t pConn) {
  * @ Return: void
  */
 void CSocket::ngx_close_connection(lpngx_connection_t c) {
+  ngx_free_connection(c);  //把释放代码放在最后边，感觉更合适
   if (close(c->fd) == -1) {
     ngx_log_error_core(NGX_LOG_ALERT, errno,
                        "CSocket::ngx_close_connection()中close(%d)失败!",
                        c->fd);
   }
-  c->fd = -1;              //官方nginx这么写，这么写有意义；
-  ngx_free_connection(c);  //把释放代码放在最后边，感觉更合适
   return;
 }
 
@@ -190,7 +179,7 @@ void CSocket::ngx_close_connection(lpngx_connection_t c) {
  * @ Parameters: lpngx_connection_t pConn
  * @ Return: void *
  */
-void *CSocket::inRecyConnectQueue(lpngx_connection_t pConn) {
+void CSocket::inRecyConnectQueue(lpngx_connection_t pConn) {
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::inRecyConnectQueue().");
 
   CLock lock(&m_recyconnqueueMutex);
@@ -243,6 +232,14 @@ void *CSocket::ServerRecyConnectionThread(void *threadData) {
           //如果不是要整个系统退出，你可以continue，否则就得要强制释放
           continue; /* 没到释放的时间 */
         }
+        if (p_Conn->iThrowsendCount != 0) {
+          //这确实不应该，打印个日志吧；
+          ngx_log_error_core(
+              NGX_LOG_INFO, 0,
+              "CSocket::ServerRecyConnectionThread()中到释放时间却发现p_Conn."
+              "iThrowsendCount!=0，这个不该发生");
+          //其他先暂时啥也不敢，路程继续往下走，继续去释放吧。
+        }
 
         //到释放的时间了:
         //......这将来可能还要做一些是否能释放的判断[在我们写完发送数据代码之后吧]，先预留位置
@@ -254,7 +251,8 @@ void *CSocket::ServerRecyConnectionThread(void *threadData) {
 
         ngx_log_error_core(
             NGX_LOG_DEBUG, 0,
-            "CSocket::ServerRecyConnectionThread() link[%d] erase", p_Conn->fd);
+            "CSocket::ServerRecyConnectionThread() link[%d] return pool",
+            p_Conn->fd);
 
         pSocketObj->ngx_free_connection(p_Conn);
         /* 归还参数pConn所代表的连接到到连接池中 */

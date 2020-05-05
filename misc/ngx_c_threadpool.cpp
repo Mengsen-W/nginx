@@ -23,7 +23,8 @@ bool CThreadPool::m_shutdown = false;
 /*
  * @ Description: 构造函数
  */
-CThreadPool::CThreadPool() : m_iRunningThreadNUm(0), m_iLastEmgTime(0) {}
+CThreadPool::CThreadPool()
+    : m_iRunningThreadNUm(0), m_iLastEmgTime(0), m_iRecvMsgQueueCount(0) {}
 
 /*
  * @ Description: 析构函数
@@ -63,6 +64,7 @@ lblfor:
       goto lblfor;
     }
   }
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadpool::Create() successful");
   return true;
 }
 
@@ -95,7 +97,8 @@ void* CThreadPool::ThreadFunc(void* threadData) {
     while ((pThreadPoolObj->m_MsgRecvQueue.size() == 0) &&
            m_shutdown == false) { /* 用while防止虚假唤醒 */
       if (pthread->ifrunning == false) pthread->ifrunning = true;
-      ngx_log_error_core(NGX_LOG_DEBUG, 0, "[tid = %d]pthread wait()", tid);
+      ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                         "CThreadPool [tid = %d] pthread wait()", tid);
       pthread_cond_wait(&m_pthreadCond, &m_pthreadMutex);
     }
 
@@ -106,7 +109,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
 
     char* jobbuf = pThreadPoolObj->m_MsgRecvQueue.front();
     pThreadPoolObj->m_MsgRecvQueue.pop_front();
-    --pThreadPoolObj->m_iRecvQueueCount;
+    --pThreadPoolObj->m_iRecvMsgQueueCount;
     pthread_mutex_unlock(&m_pthreadMutex);
 
     ++pThreadPoolObj->m_iRunningThreadNUm;
@@ -117,6 +120,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
     p_memory->FreeMemory(jobbuf);
     --pThreadPoolObj->m_iRunningThreadNUm;
   }
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadPool::ThreadFunc() success");
   return static_cast<void*>(0);
 }
 
@@ -127,7 +131,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
  */
 void CThreadPool::StopAll() {
   // shutdown 已经关了
-  if (m_shutdown) return;
+  if (m_shutdown == true) return;
 
   m_shutdown = true;
 
@@ -181,6 +185,7 @@ void CThreadPool::Call() {
     }
   }
 
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadPool::Call() success");
   return;
 }
 
@@ -200,7 +205,7 @@ void CThreadPool::inMsgRecvQueueAndSingal(char* buf) {
   }
 
   m_MsgRecvQueue.push_back(buf); /* 入消息队列 */
-  ++m_iRecvQueueCount;
+  ++m_iRecvMsgQueueCount;
 
   // unlock
   err = pthread_mutex_unlock(&m_pthreadMutex);
@@ -211,6 +216,8 @@ void CThreadPool::inMsgRecvQueueAndSingal(char* buf) {
   }
 
   Call(); /* 唤醒进程 */
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CThreadPool::inMsgRecvQueueAndSingal() success");
   return;
 }
 

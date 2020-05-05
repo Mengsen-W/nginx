@@ -26,7 +26,7 @@
 // 包头结构
 typedef struct _COMM_PKG_HEADER {
   unsigned short pkgLen;  /* 报文总长度 */
-  unsigned short msgCOde; /* 消息类型 */
+  unsigned short msgCode; /* 消息类型 */
   int crc32;              /* crc 校验 */
   // uint8_t itest;
 } COMM_PKG_HEADER, *LPCOMM_PKG_HEADER;

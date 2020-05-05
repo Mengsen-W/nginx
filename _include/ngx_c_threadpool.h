@@ -52,7 +52,7 @@ class CThreadPool {
   std::vector<ThreadItem *> m_threadVector; /* 线程容器 */
 
   std::list<char *> m_MsgRecvQueue; /* 接受消息队列 */
-  int m_iRecvQueueCount;            /* 收消息队列大小 */
+  int m_iRecvMsgQueueCount;            /* 收消息队列大小 */
 };
 
 #endif

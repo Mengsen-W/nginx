@@ -22,3 +22,6 @@ clean:
 cleanlog:
 	rm -rf logs/*.log
 
+test:
+	make clean && make
+

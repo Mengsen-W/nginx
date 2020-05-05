@@ -32,7 +32,7 @@ static const handler statusHandler[] = {
     nullptr,                        /* 下标3 */
     nullptr,                        /* 下标4 */
     &CLogicSocket::_HandleRegister, /* 下标5 */
-    &CLogicSocket::_HandleLogin,    /* 下标6 */
+    &CLogicSocket::_HandleLogIn,    /* 下标6 */
 };
 
 /* 函数指针总数 编译期绑定 */
@@ -62,15 +62,6 @@ bool CLogicSocket::Initialize() {
 bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
                                    LPSTRUC_MSG_HEADER pMsgHeader,
                                    char *pPkgBody, unsigned short iBodyLength) {
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleRegister() successful");
-  return true;
-}
-
-// 临时业务登录
-bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
-                                LPSTRUC_MSG_HEADER pMsgHeader, char *pPkgBody,
-                                unsigned short iBodyLength) {
   if (pPkgBody == nullptr) return false;
 
   int iRecvLen = sizeof(STRUCT_REGISTER);
@@ -78,11 +69,9 @@ bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
 
   CLock lock(&pConn->logicPorcMutex);
 
-  LPSTRUCT_REGISTER p_RecvInfo = reinterpret_cast<LPSTRUCT_REGISTER>(pPkgBody);
-
   // 业务逻辑
   ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleLogin() successful");
+                     "CLogicSocket::_HandleRegister() successful");
   // 业务处理结束
 
   // 服务端回复消息
@@ -94,10 +83,47 @@ bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
       m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
   memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
   pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
-  pPkgHeader->msgCOde = _CMD_LOGIN;
-  pPkgHeader->msgCOde = htons(pPkgHeader->msgCOde);
+  pPkgHeader->msgCode = _CMD_LOGIN;
+  pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
   pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
   LPSTRUCT_REGISTER p_sendInfo = reinterpret_cast<LPSTRUCT_REGISTER>(
+      p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
+  pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
+  pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
+  // send 先不写，防止泄漏
+  p_memory->FreeMemory(p_sendbuf);
+  return true;
+}
+
+// 临时业务登录
+bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,
+                                LPSTRUC_MSG_HEADER pMsgHeader, char *pPkgBody,
+                                unsigned short iBodyLength) {
+  if (pPkgBody == nullptr) return false;
+
+  int iRecvLen = sizeof(STRUCT_LOGIN);
+  if (iRecvLen != iBodyLength) return false;
+
+  CLock lock(&pConn->logicPorcMutex);
+
+  // 业务逻辑
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CLogicSocket::_HandleLogin() successful");
+  // 业务处理结束
+
+  // 服务端回复消息
+  LPCOMM_PKG_HEADER pPkgHeader;
+  CMemory *p_memory = CMemory::GetInstance();
+  CCRC32 *p_crc32 = CCRC32::GetInstance();
+  int iSendLen = sizeof(STRUCT_LOGIN);
+  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
+      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
+  memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
+  pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
+  pPkgHeader->msgCode = _CMD_LOGIN;
+  pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
+  pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
+  LPSTRUCT_LOGIN p_sendInfo = reinterpret_cast<LPSTRUCT_LOGIN>(
       p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
   pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
   pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
@@ -112,65 +138,82 @@ bool CLogicSocket::_HandleLogin(lpngx_connection_t pConn,
  * @ Return: void
  */
 void CLogicSocket::threadRecvProcFunc(char *pMsgBuf) {
-  LPSTRUC_MSG_HEADER pMsgHeader =
-      reinterpret_cast<LPSTRUC_MSG_HEADER>(pMsgBuf); /* 消息头*/
+  LPSTRUC_MSG_HEADER pMsgHeader = (LPSTRUC_MSG_HEADER)pMsgBuf;  //消息头
   LPCOMM_PKG_HEADER pPkgHeader =
-      reinterpret_cast<LPCOMM_PKG_HEADER>(pMsgBuf + m_iLenMsgHeader); /* 包头 */
-  void *pPkgBody; /* 指向包体的指针 */
-  unsigned short pkgLen =
+      (LPCOMM_PKG_HEADER)(pMsgBuf + m_iLenMsgHeader);  //包头
+  void *pPkgBody;                                      //指向包体的指针
+  unsigned short pkglen =
       ntohs(pPkgHeader->pkgLen);  //客户端指明的包宽度【包头+包体】
 
-  if (m_iLenPkgHeader == pkgLen) { /* 没有包体 */
+  if (m_iLenPkgHeader == pkglen) {
+    //没有包体，只有包头
+    if (pPkgHeader->crc32 != 0)  //只有包头的crc值给0
+    {
+      return;  // crc错，直接丢弃
+    }
+    pPkgBody = NULL;
+  } else {
+    //有包体，走到这里
+    pPkgHeader->crc32 =
+        ntohl(pPkgHeader->crc32);  //针对4字节的数据，网络序转主机序
+    pPkgBody = (void *)(pMsgBuf + m_iLenMsgHeader +
+                        m_iLenPkgHeader);  //跳过消息头 以及 包头 ，指向包体
 
-    if (pPkgHeader->crc32 != 0) return; /* crc错误 */
-    pPkgBody = nullptr;
-
-  } else { /* 有包体 */
-
-    pPkgHeader->crc32 = ntohl(pPkgHeader->crc32);
-    pPkgBody = static_cast<void *>(pMsgBuf + m_iLenMsgHeader + m_iLenPkgHeader);
-    int calccrc = CCRC32::GetInstance()->Get_CRC((unsigned char *)pPkgBody,
-                                                 pkgLen - m_iLenPkgHeader);
-
-    if (calccrc != pPkgHeader->crc32) { /* 校验错误 */
-      ngx_log_error_core(NGX_LOG_WARN, 0,
-                         "CLogicSocket::threadRecvProcFunc()->CRC error");
-      return;
+    //计算crc值判断包的完整性
+    int calccrc = CCRC32::GetInstance()->Get_CRC(
+        (unsigned char *)pPkgBody,
+        pkglen - m_iLenPkgHeader);  //计算纯包体的crc值
+    if (calccrc !=
+        pPkgHeader
+            ->crc32)  //服务器端根据包体计算crc值，和客户端传递过来的包头中的crc32信息比较
+    {
+      ngx_log_stderr(
+          0,
+          "CLogicSocket::threadRecvProcFunc()中CRC错误，丢弃数据!");  //正式代码中可以干掉这个信息
+      return;  // crc错，直接丢弃
     }
   }
 
-  unsigned short iMsgCode = ntohs(pPkgHeader->msgCOde); /* 业务代码 */
+  //包crc校验OK才能走到这里
+  unsigned short imsgCode = ntohs(pPkgHeader->msgCode);  //消息代码拿出来
+  lpngx_connection_t p_Conn =
+      pMsgHeader->pConn;  //消息头中藏着连接池中连接的指针
 
-  lpngx_connection_t p_Conn = pMsgHeader->pConn; /* 连接池指针 */
-
-  if (p_Conn->iCurrsequence != pMsgHeader->iCurrsequence) { /* 客户端意外终止 */
-    /* 比较发送过来的和连接单元的序号判断是否为废包 */
-    ngx_log_error_core(
-        NGX_LOG_NOTICE, 0,
-        "CLogicSocket::threadRecvProcFunc()-> client terminate unexpectedly");
-    return; /* 丢弃 */
+  //我们要做一些判断
+  //(1)如果从收到客户端发送来的包，到服务器释放一个线程池中的线程处理该包的过程中，客户端断开了，那显然，这种收到的包我们就不必处理了；
+  if (p_Conn->iCurrsequence !=
+      pMsgHeader
+          ->iCurrsequence)  //该连接池中连接以被其他tcp连接【其他socket】占用，这说明原来的
+                            //客户端和本服务器的连接断了，这种包直接丢弃不理
+  {
+    return;  //丢弃不理这种包了【客户端断开了】
   }
 
-  if (iMsgCode >= AUTH_TOTAL_COMMANDS) { /* 业务代码错误 */
-
-    ngx_log_error_core(NGX_LOG_WARN, 0,
-                       "CLogicSocket::threadRecvProcFunc()-> client link "
-                       "spamming [MsgCode = %d]",
-                       iMsgCode);
-    return; /* 拒收丢弃 */
+  //(2)判断消息码是正确的，防止客户端恶意侵害我们服务器，发送一个不在我们服务器处理范围内的消息码
+  if (imsgCode >= AUTH_TOTAL_COMMANDS)  //无符号数不可能<0
+  {
+    ngx_log_stderr(
+        0, "CLogicSocket::threadRecvProcFunc()中imsgCode=%d消息码不对!",
+        imsgCode);  //这种有恶意倾向或者错误倾向的包，希望打印出来看看是谁干的
+    return;         //丢弃不理这种包【恶意包或者错误包】
   }
 
-  if (statusHandler[iMsgCode] == nullptr) { /* 没有相关处理函数 */
-    ngx_log_error_core(NGX_LOG_INFO, 0,
-                       "CLogicSocket::statusHandler[] no found call back "
-                       "function[MsgCode = %d]",
-                       iMsgCode);
-    return; /* 丢弃 */
+  //能走到这里的，包没过期，不恶意，那好继续判断是否有相应的处理函数
+  //(3)有对应的消息处理函数吗
+  if (statusHandler[imsgCode] ==
+      NULL)  //这种用imsgCode的方式可以使查找要执行的成员函数效率特别高
+  {
+    ngx_log_stderr(
+        0,
+        "CLogicSocket::threadRecvProcFunc()中imsgCode=%"
+        "d消息码找不到对应的处理函数!",
+        imsgCode);  //这种有恶意倾向或者错误倾向的包，希望打印出来看看是谁干的
+    return;         //没有相关的处理函数
   }
 
-  (this->*(statusHandler[iMsgCode]))(p_Conn, pMsgHeader,
-                                     static_cast<char *>(pPkgBody),
-                                     pkgLen - m_iLenPkgHeader);
-
+  //一切正确，可以放心大胆的处理了
+  //(4)调用消息码对应的成员函数来处理
+  (this->*statusHandler[imsgCode])(p_Conn, pMsgHeader, (char *)pPkgBody,
+                                   pkglen - m_iLenPkgHeader);
   return;
 }

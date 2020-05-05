@@ -146,6 +146,8 @@ static void ngx_worker_process_init(int inum) {
   int threadnums = p_config->GetIntDefault("ProcMsgRecvWorkThreadCount", 1);
   if (g_threadpool.Create(threadnums) == false) exit(-2);
 
+  if (g_socket.Initialize_subproc() == false) exit(-2);
+
   g_socket.ngx_epoll_init();
 
   return;

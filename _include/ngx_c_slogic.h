@@ -21,7 +21,7 @@ class CLogicSocket : public CSocket {
 
   bool _HandleRegister(lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
                        char *pPkgBody, unsigned short size);
-  bool _HandleLogin(lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
+  bool _HandleLogIn(lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
                     char *pPkgBody, unsigned short size);
 };
 
