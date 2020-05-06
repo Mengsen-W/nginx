@@ -113,7 +113,9 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
     newc->listening = oldc->listening; /* 连接对象 */
 
     newc->rhandler =
-        &CSocket::ngx_wait_request_handler; /* 设置数据来时的读处理函数 */
+        &CSocket::ngx_read_request_handler; /* 设置数据来时的读处理函数 */
+
+    newc->whandler = &CSocket::ngx_write_request_handler; /* 写事件回调函数 */
 
     /* 客户端应该主动发送第一次的数据，这里将读事件加入epoll监控 */
     if (ngx_epoll_oper_event(s, EPOLL_CTL_ADD, EPOLLIN | EPOLLRDHUP, 0, newc) ==

@@ -119,7 +119,7 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
     --m_free_connection_n;
     p_Conn->fd = isock;
     ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                       "CSocket::ngx_get_connection() is empty success");
+                       "CSocket::ngx_get_connection() have sit success");
     return p_Conn;
   }
 

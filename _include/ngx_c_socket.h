@@ -10,6 +10,7 @@
 #define __NGX_C_SOCKET_H__
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 
@@ -115,8 +116,9 @@ class CSocket {
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
 
  protected:
-  size_t m_iLenPkgHeader; /* 包头长度 */
-  size_t m_iLenMsgHeader; /* 消息头长度 */
+  void msgSend(char *pSendbuf); /* 推入发送队列 */
+  size_t m_iLenPkgHeader;       /* 包头长度 */
+  size_t m_iLenMsgHeader;       /* 消息头长度 */
 
  private:
   // 管理线程
@@ -139,8 +141,8 @@ class CSocket {
 
   void ReadConf(); /* 读配置文件 */
 
-  void initConnection();  /* 初始化连接池 */
-  void clearconnection(); /* 立即回收连接池 */
+  void initConnection();                             /* 初始化连接池 */
+  void clearconnection();                            /* 立即回收连接池 */
   void inRecyConnectQueue(lpngx_connection_t pConn); /* 延迟回收 */
 
   lpngx_connection_t ngx_get_connection(int isocket); /* 去空闲节点 */
@@ -148,7 +150,7 @@ class CSocket {
   void ngx_close_connection(lpngx_connection_t c);    /* 关闭连接 */
 
   void ngx_event_accept(lpngx_connection_t oldc);      /* accept回调 */
-  void ngx_wait_request_handler(lpngx_connection_t c); /* 可读回调 */
+  void ngx_read_request_handler(lpngx_connection_t c); /* 可读回调 */
 
   int ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag,
                            int bcaction,
@@ -161,22 +163,27 @@ class CSocket {
 
   ssize_t recvproc(lpngx_connection_t c, char *buff,
                    ssize_t buflen); /* 封装recv */
-  void ngx_wait_request_handler_proc_p1(
+  void ngx_read_request_handler_proc_p1(
       lpngx_connection_t c); /* 接受包头的第一阶段 */
-  void ngx_wait_request_handler_proc_plast(
+  void ngx_read_request_handler_proc_plast(
       lpngx_connection_t c); /* 收到一个完整包后处理 */
+
+  void ngx_write_request_handler(lpngx_connection_t pConn); /* 发消息回调函数 */
+
+  ssize_t sendproc(lpngx_connection_t c, char *buff,
+                   ssize_t size); /* 发送数据 */
 
   void clearMsgSendQueue(); /* 清空发送队列 */
 
   int m_ListenPortCount;    /* 所监听的端口数量 */
   int m_worker_connections; /* worker进程最大连接数 */
 
-  int m_epollhandle;       /* 返回的epoll handle */
-  int m_connection_n;      /* 当前连接池中连接总数 */
+  int m_epollhandle;  /* 返回的epoll handle */
+  int m_connection_n; /* 当前连接池中连接总数 */
 
   std::vector<ThreadItem *> m_threadVector; /* 线程容器*/
   pthread_mutex_t m_sendMessageQueueMutex;  /* 发消息队列互斥量 */
-  // sem_t m_semEventSendQueue;  //处理发消息线程相关的信号量
+  sem_t m_semEventSendQueue; /* 处理发消息线程相关的信号量 */
 
   std::list<lpngx_connection_t> m_connectionList;     /* 连接池链表 */
   std::list<lpngx_connection_t> m_freeconnectionList; /* 空闲连接池链表 */
@@ -196,6 +203,7 @@ class CSocket {
 
   static void *ServerRecyConnectionThread(
       void *threadData); /* 回收队列交给子线程处理 */
+  static void *ServerSendQueueThread(void *threadData); /* 发送线程 */
 
   std::list<char *> m_MsgSendQueue;      /* 发送数据消息队列 */
   std::atomic<int> m_iSendMsgQueueCount; /* 发消息队列大小 */

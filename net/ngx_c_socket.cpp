@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <string.h>
 #include <stropts.h>
@@ -21,6 +22,7 @@
 #include <unistd.h>
 
 #include "ngx_c_conf.h"
+#include "ngx_c_lockmutex.h"
 #include "ngx_c_threadpool.h"
 #include "ngx_func.h"
 #include "ngx_macro.h"
@@ -101,6 +103,10 @@ bool CSocket::Initialize() {
  * @ Description: 回收线程
  */
 void CSocket::Shutdown_subproc() {
+  if (sem_post(&m_semEventSendQueue) == -1) {
+    ngx_log_error_core(NGX_LOG_ERR, errno,
+                       "CSocket::Shutown_subproc()->sem_post() failed");
+  }
   /* 通过 shutdown 开关 */
   std::vector<ThreadItem *>::iterator iter;
   for (iter = m_threadVector.begin(); iter != m_threadVector.end(); iter++) {
@@ -121,7 +127,7 @@ void CSocket::Shutdown_subproc() {
   pthread_mutex_destroy(&m_connectionMutex);  //连接相关互斥量释放
   pthread_mutex_destroy(&m_sendMessageQueueMutex);  //发消息互斥量释放
   pthread_mutex_destroy(&m_recyconnqueueMutex);  //连接回收队列相关的互斥量释放
-  // sem_destroy(&m_semEventSendQueue);  //发消息相关线程信号量释放
+  sem_destroy(&m_semEventSendQueue);  //发消息相关线程信号量释放
 }
 
 /*
@@ -309,23 +315,23 @@ bool CSocket::Initialize_subproc() {
   //第二个参数=0，表示信号量在线程之间共享，确实如此
   //，如果非0，表示在进程之间共享
   //第三个参数=0，表示信号量的初始值，为0时，调用sem_wait()就会卡在那里卡着
-  // if (sem_init(&m_semEventSendQueue, 0, 0) == -1) {
-  //   ngx_log_stderr(
-  //       0, "CSocekt::Initialize()中sem_init(&m_semEventSendQueue,0,0)失败.");
-  //   return false;
-  // }
+  if (sem_init(&m_semEventSendQueue, 0, 0) == -1) {
+    ngx_log_stderr(
+        0, "CSocket::Initialize()中sem_init(&m_semEventSendQueue,0,0)失败.");
+    return false;
+  }
 
-  //创建线程
+  //创建发送队列管理线程
   int err;
-  /*ThreadItem *pSendQueue;
-  m_threadVector.push_back(pSendQueue = new ThreadItem(this)); //创建
-  一个新线程对象 并入到容器中 err = pthread_create(&pSendQueue->_Handle,
-  NULL, ServerSendQueueThread,pSendQueue);
-  //创建线程，错误不返回到errno，一般返回错误码 if(err != 0)
-  {
-      return false;
-  }*/
-  //---
+  ThreadItem *pSendQueue;
+  m_threadVector.push_back(pSendQueue = new ThreadItem(this));
+  err = pthread_create(&pSendQueue->_Handle, NULL, ServerSendQueueThread,
+                       pSendQueue);
+  if (err != 0) {
+    return false;
+  }
+
+  // 创建管理回收连接池线程
   ThreadItem *pRecyconn;
   m_threadVector.push_back(pRecyconn = new ThreadItem(this));
   err = pthread_create(&pRecyconn->_Handle, NULL, ServerRecyConnectionThread,
@@ -355,11 +361,20 @@ int CSocket::ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag,
     pConn->events = flag;
   } else if (eventtype == EPOLL_CTL_MOD) {
     //节点已经在红黑树中，修改节点的事件信息
+    ev.events = pConn->events;
+    if (bcaction == 0) {
+      ev.events |= flag;
+    } else if (bcaction == 1) {
+      ev.events &= ~flag;
+    } else {
+      ev.events = flag;
+    }
   } else {
     //删除红黑树中节点，目前没这个需求，所以将来再扩展
     return 1;  //先直接返回1表示成功
   }
 
+  // 二次确认
   ev.data.ptr = (void *)pConn;
 
   if (epoll_ctl(m_epollhandle, eventtype, fd, &ev) == -1) {
@@ -420,10 +435,194 @@ int CSocket::ngx_epoll_process_events(int timer) {
       if (revents & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
         --c->iThrowsendCount;
         ngx_log_error_core(NGX_LOG_INFO, errno, "EPOLLOUT");
-        epoll_ctl(m_epollhandle,EPOLL_CTL_DEL,revents,&m_events[i]);
       } else {
+        (this->*(c->whandler))(c);
       }
     }
   }
   return 1;
+}
+
+/*
+ * @ Description: 将数据发送到发送队列中
+ */
+void CSocket::msgSend(char *pSendbuf) {
+  CLock lock(&m_sendMessageQueueMutex);
+  m_MsgSendQueue.push_back(pSendbuf);
+  ++m_iSendMsgQueueCount;
+
+  //将信号量的值+1,这样其他卡在sem_wait的就可以走下去
+  if (sem_post(&m_semEventSendQueue) ==
+      -1)  //让ServerSendQueueThread()流程走下来干活
+  {
+    ngx_log_stderr(0,
+                   "CSocket::msgSend()中sem_post(&m_semEventSendQueue)失败.");
+  }
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::ngx_msgSend() success");
+  return;
+}
+
+/*
+ * @ Description: 发送消息队列 单独线程
+ */
+void *CSocket::ServerSendQueueThread(void *threadData) {
+  ThreadItem *pThread = static_cast<ThreadItem *>(threadData);
+  CSocket *pSocketObj = pThread->_pThis;
+  int err;
+  std::list<char *>::iterator pos, pos2, posend;
+
+  char *pMsgBuf;
+  LPSTRUC_MSG_HEADER pMsgHeader;
+  LPCOMM_PKG_HEADER pPkgHeader;
+  lpngx_connection_t p_Conn;
+  unsigned short itmp;
+  ssize_t sendsize;
+
+  CMemory *p_memory = CMemory::GetInstance();
+
+  while (g_stopEvent == 0)  //不退出
+  {
+    if (sem_wait(&pSocketObj->m_semEventSendQueue) == -1) {
+      if (errno != EINTR)
+        ngx_log_error_core(
+            NGX_LOG_ERR, errno,
+            "CSocket::ServerSendQueueThread()->sem_wait(&pSocketObj-"
+            ">m_semEventSendQueue) failed.");
+    }
+
+    if (g_stopEvent != 0) /* 要求整个进程退出 */
+      break;
+
+    if (pSocketObj->m_iSendMsgQueueCount > 0) {
+      err = pthread_mutex_lock(&pSocketObj->m_sendMessageQueueMutex);
+      if (err != 0)
+        ngx_log_error_core(
+            NGX_LOG_ERR, err,
+            "CSocket::ServerSendQueueThread()中pthread_mutex_lock() failed");
+
+      pos = pSocketObj->m_MsgSendQueue.begin();
+      posend = pSocketObj->m_MsgSendQueue.end();
+
+      while (pos != posend) {
+        pMsgBuf = (*pos);
+        pMsgHeader = (LPSTRUC_MSG_HEADER)pMsgBuf; /* 消息头 */
+        pPkgHeader = (LPCOMM_PKG_HEADER)(
+            pMsgBuf + pSocketObj->m_iLenMsgHeader); /* 包头 */
+        p_Conn = pMsgHeader->pConn;
+
+        if (p_Conn->iCurrsequence !=
+            pMsgHeader->iCurrsequence) { /* 判断客户端断开 */
+          // 注意迭代器失效
+          pos2 = pos;
+          pos++;
+          pSocketObj->m_MsgSendQueue.erase(pos2);
+          --pSocketObj->m_iSendMsgQueueCount;
+          p_memory->FreeMemory(pMsgBuf);
+          continue;
+        }
+
+        if (p_Conn->iThrowsendCount > 0) {
+          //靠系统驱动来发送消息，所以这里不能再发送
+          pos++;
+          continue;
+        }
+
+        //走到这里，可以发送消息
+        p_Conn->psendMemPointer = pMsgBuf;
+        //发送后释放用的，因为这段内存是new出来的
+        pos2 = pos;
+        pos++;
+        pSocketObj->m_MsgSendQueue.erase(pos2);
+        --pSocketObj->m_iSendMsgQueueCount;
+
+        p_Conn->psendbuf = (char *)pPkgHeader;
+        //要发送的数据的缓冲区指针，因为发送数据不一定全部都能发送出去，我们要记录数据发送到了哪里，需要知道下次数据从哪里开始发送
+        itmp = ntohs(pPkgHeader->pkgLen); /* 包头+包体 长度 */
+        p_Conn->isendlen = itmp;
+        ngx_log_error_core(NGX_LOG_DEBUG, 0, "send data [%ud]",
+                           p_Conn->isendlen);
+
+        // 发送数据
+        ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::ServerSend() begin");
+        sendsize =
+            pSocketObj->sendproc(p_Conn, p_Conn->psendbuf, p_Conn->isendlen);
+
+        if (sendsize > 0) {
+          if (sendsize == p_Conn->isendlen) {
+            //成功发送的和要求发送的数据相等，说明全部发送成功了
+            p_memory->FreeMemory(p_Conn->psendMemPointer); /* 释放内存 */
+            /* 初始化 */
+            p_Conn->psendMemPointer = NULL;
+            p_Conn->iThrowsendCount = 0;
+            ngx_log_error_core(
+                NGX_LOG_DEBUG, 0,
+                "CSocket::ServerSendQueueThread()->sendproc() success");
+          } else { /* 发送区满 */
+            //剩余多少记录
+            p_Conn->psendbuf = p_Conn->psendbuf + sendsize;
+            p_Conn->isendlen = p_Conn->isendlen - sendsize;
+
+            // epoll_wait()
+            ++p_Conn->iThrowsendCount;
+
+            //投递此事件后，我们将依靠epoll驱动调用ngx_write_request_handler()函数发送数据
+            if (pSocketObj->ngx_epoll_oper_event(p_Conn->fd, EPOLL_CTL_MOD,
+                                                 EPOLLOUT, 0, p_Conn) == -1) {
+              //有这情况发生？这可比较麻烦，不过先do nothing
+              ngx_log_error_core(
+                  NGX_LOG_ERR, errno,
+                  "CSocket::ServerSendQueueThread()->ngx_epoll_oper_"
+                  "event() in sendsize > 1 failed");
+            }
+
+            ngx_log_error_core(
+                NGX_LOG_DEBUG, errno,
+                "CSocket::ServerSendQueueThread() data no send all[send buffer "
+                "full] [need to send = %d real send = %d]",
+                p_Conn->isendlen, sendsize);
+          }
+          continue;
+        }
+
+        //能走到这里，应该是有点问题的
+        else if (sendsize == 0) {
+          ngx_log_error_core(
+              NGX_LOG_INFO, errno,
+              "CSocket::ServerSendQueueThread()->sendproc() return0");
+          p_memory->FreeMemory(p_Conn->psendMemPointer);  //释放内存
+          p_Conn->psendMemPointer = NULL;
+          p_Conn->iThrowsendCount = 0;
+          continue;
+        }
+
+        //能走到这里，继续处理问题
+        else if (sendsize == -1) { /* 一个字节都没发出去 */
+          ++p_Conn->iThrowsendCount;
+          if (pSocketObj->ngx_epoll_oper_event(p_Conn->fd, EPOLL_CTL_MOD,
+                                               EPOLLOUT, 0, p_Conn) == -1) {
+            ngx_log_error_core(
+                NGX_LOG_ERR, errno,
+                "CSocket::ServerSendQueueThread()->ngx_epoll_add_"
+                "event() in sendsize == 1 failed");
+          }
+          continue;
+        }
+
+        else { /* 对端断开 */
+          p_memory->FreeMemory(p_Conn->psendMemPointer);
+          p_Conn->psendMemPointer = NULL;
+          p_Conn->iThrowsendCount = 0;
+          continue;
+        }
+      }
+
+      err = pthread_mutex_unlock(&pSocketObj->m_sendMessageQueueMutex);
+      if (err != 0)
+        ngx_log_error_core(NGX_LOG_ERR, err,
+                           "CSocket::ServerSendQueueThread()->pthread_mutex_"
+                           "unlock() failed");
+    }
+  }
+
+  return (void *)0;
 }

@@ -79,19 +79,25 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
   CMemory *p_memory = CMemory::GetInstance();
   CCRC32 *p_crc32 = CCRC32::GetInstance();
   int iSendLen = sizeof(STRUCT_REGISTER);
+
+  // iSendLen = 65000;
+
   char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
       m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
   memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
-  pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
-  pPkgHeader->msgCode = _CMD_LOGIN;
+  pPkgHeader = (LPCOMM_PKG_HEADER)(p_sendbuf + m_iLenMsgHeader);
+  pPkgHeader->msgCode = _CMD_REGISTER;
   pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
-  pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
-  LPSTRUCT_REGISTER p_sendInfo = reinterpret_cast<LPSTRUCT_REGISTER>(
-      p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
+  pPkgHeader->pkgLen = htons(m_iLenPkgHeader + iSendLen);
+  LPSTRUCT_REGISTER p_sendInfo =
+      (LPSTRUCT_REGISTER)(p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
   pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
   pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
+
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CLogicSocket::_HandleRegister() begin to send data");
   // send 先不写，防止泄漏
-  p_memory->FreeMemory(p_sendbuf);
+  msgSend(p_sendbuf);
   return true;
 }
 
@@ -128,6 +134,7 @@ bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,
   pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
   pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
   // send 先不写，防止泄漏
+  msgSend(p_sendbuf);
   p_memory->FreeMemory(p_sendbuf);
   return true;
 }
