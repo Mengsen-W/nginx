@@ -22,8 +22,7 @@
 /*
  * Description: 构造函数
  */
-ngx_connection_s::ngx_connection_s() {
-  iCurrsequence = 0;
+ngx_connection_s::ngx_connection_s() : iCurrsequence(0) {
   pthread_mutex_init(&logicPorcMutex, NULL);
 }
 /*
@@ -47,6 +46,7 @@ void ngx_connection_s::GetOneToUse() {
   iThrowsendCount = 0;
   psendMemPointer = NULL;
   events = 0;
+  lastPingTime = time(NULL);
 }
 
 /*

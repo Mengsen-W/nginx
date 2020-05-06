@@ -26,7 +26,7 @@ typedef bool (CLogicSocket::*handler)(lpngx_connection_t pConn,
 
 /* 回调函数类别 */
 static const handler statusHandler[] = {
-    nullptr,                        /* 下标0 */
+    &CLogicSocket::_HandlePing,     /* 下标0 */
     nullptr,                        /* 下标1 */
     nullptr,                        /* 下标2 */
     nullptr,                        /* 下标3 */
@@ -56,87 +56,6 @@ CLogicSocket::~CLogicSocket() {}
 bool CLogicSocket::Initialize() {
   bool bParentInit = CSocket::Initialize();
   return bParentInit;
-}
-
-// 临时业务注册函数
-bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
-                                   LPSTRUC_MSG_HEADER pMsgHeader,
-                                   char *pPkgBody, unsigned short iBodyLength) {
-  if (pPkgBody == nullptr) return false;
-
-  int iRecvLen = sizeof(STRUCT_REGISTER);
-  if (iRecvLen != iBodyLength) return false;
-
-  CLock lock(&pConn->logicPorcMutex);
-
-  // 业务逻辑
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleRegister() successful");
-  // 业务处理结束
-
-  // 服务端回复消息
-  LPCOMM_PKG_HEADER pPkgHeader;
-  CMemory *p_memory = CMemory::GetInstance();
-  CCRC32 *p_crc32 = CCRC32::GetInstance();
-  int iSendLen = sizeof(STRUCT_REGISTER);
-
-  // iSendLen = 65000;
-
-  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
-      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
-  memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
-  pPkgHeader = (LPCOMM_PKG_HEADER)(p_sendbuf + m_iLenMsgHeader);
-  pPkgHeader->msgCode = _CMD_REGISTER;
-  pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
-  pPkgHeader->pkgLen = htons(m_iLenPkgHeader + iSendLen);
-  LPSTRUCT_REGISTER p_sendInfo =
-      (LPSTRUCT_REGISTER)(p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
-  pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
-  pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
-
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleRegister() begin to send data");
-  // send 先不写，防止泄漏
-  msgSend(p_sendbuf);
-  return true;
-}
-
-// 临时业务登录
-bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,
-                                LPSTRUC_MSG_HEADER pMsgHeader, char *pPkgBody,
-                                unsigned short iBodyLength) {
-  if (pPkgBody == nullptr) return false;
-
-  int iRecvLen = sizeof(STRUCT_LOGIN);
-  if (iRecvLen != iBodyLength) return false;
-
-  CLock lock(&pConn->logicPorcMutex);
-
-  // 业务逻辑
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleLogin() successful");
-  // 业务处理结束
-
-  // 服务端回复消息
-  LPCOMM_PKG_HEADER pPkgHeader;
-  CMemory *p_memory = CMemory::GetInstance();
-  CCRC32 *p_crc32 = CCRC32::GetInstance();
-  int iSendLen = sizeof(STRUCT_LOGIN);
-  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
-      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
-  memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
-  pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
-  pPkgHeader->msgCode = _CMD_LOGIN;
-  pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
-  pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
-  LPSTRUCT_LOGIN p_sendInfo = reinterpret_cast<LPSTRUCT_LOGIN>(
-      p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
-  pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
-  pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
-  // send 先不写，防止泄漏
-  msgSend(p_sendbuf);
-  p_memory->FreeMemory(p_sendbuf);
-  return true;
 }
 
 /*
@@ -222,5 +141,143 @@ void CLogicSocket::threadRecvProcFunc(char *pMsgBuf) {
   //(4)调用消息码对应的成员函数来处理
   (this->*statusHandler[imsgCode])(p_Conn, pMsgHeader, (char *)pPkgBody,
                                    pkglen - m_iLenPkgHeader);
+  return;
+}
+
+/*
+ * @ Description: 处理注册信息
+ * @ Paramater: lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
+ * char *pPkgBody, unsigned short iBodyLength
+ * @ Return: void
+ */
+bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
+                                   LPSTRUC_MSG_HEADER pMsgHeader,
+                                   char *pPkgBody, unsigned short iBodyLength) {
+  if (pPkgBody == nullptr) return false;
+
+  int iRecvLen = sizeof(STRUCT_REGISTER);
+  if (iRecvLen != iBodyLength) return false;
+
+  CLock lock(&pConn->logicPorcMutex);
+
+  // 业务逻辑
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CLogicSocket::_HandleRegister() successful");
+  // 业务处理结束
+
+  // 服务端回复消息
+  LPCOMM_PKG_HEADER pPkgHeader;
+  CMemory *p_memory = CMemory::GetInstance();
+  CCRC32 *p_crc32 = CCRC32::GetInstance();
+  int iSendLen = sizeof(STRUCT_REGISTER);
+
+  // iSendLen = 65000;
+
+  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
+      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
+  memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
+  pPkgHeader = (LPCOMM_PKG_HEADER)(p_sendbuf + m_iLenMsgHeader);
+  pPkgHeader->msgCode = _CMD_REGISTER;
+  pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
+  pPkgHeader->pkgLen = htons(m_iLenPkgHeader + iSendLen);
+  LPSTRUCT_REGISTER p_sendInfo =
+      (LPSTRUCT_REGISTER)(p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
+  pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
+  pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
+
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CLogicSocket::_HandleRegister() begin to send data");
+  // send 先不写，防止泄漏
+  msgSend(p_sendbuf);
+  return true;
+}
+
+/*
+ * @ Description: 处理登录信息
+ * @ Paramater: lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
+ * char *pPkgBody, unsigned short iBodyLength
+ * @ Return: void
+ */
+bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,
+                                LPSTRUC_MSG_HEADER pMsgHeader, char *pPkgBody,
+                                unsigned short iBodyLength) {
+  if (pPkgBody == nullptr) return false;
+
+  int iRecvLen = sizeof(STRUCT_LOGIN);
+  if (iRecvLen != iBodyLength) return false;
+
+  CLock lock(&pConn->logicPorcMutex);
+
+  // 业务逻辑
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CLogicSocket::_HandleLogin() successful");
+  // 业务处理结束
+
+  // 服务端回复消息
+  LPCOMM_PKG_HEADER pPkgHeader;
+  CMemory *p_memory = CMemory::GetInstance();
+  CCRC32 *p_crc32 = CCRC32::GetInstance();
+  int iSendLen = sizeof(STRUCT_LOGIN);
+  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
+      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
+  memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
+  pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
+  pPkgHeader->msgCode = _CMD_LOGIN;
+  pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
+  pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
+  LPSTRUCT_LOGIN p_sendInfo = reinterpret_cast<LPSTRUCT_LOGIN>(
+      p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
+  pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
+  pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
+  // send 先不写，防止泄漏
+  msgSend(p_sendbuf);
+  p_memory->FreeMemory(p_sendbuf);
+  return true;
+}
+
+/*
+ * @ Description: 处理心跳包
+ * @ Paramater: lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
+ * char *pPkgBody, unsigned short iBodyLength
+ * @ Return: void
+ */
+bool CLogicSocket::_HandlePing(lpngx_connection_t pConn,
+                               LPSTRUC_MSG_HEADER pMsgHeader, char *pPkgBody,
+                               unsigned short iBodyLength) {
+  if (iBodyLength != 0) /* 心跳包包体应该为0 */
+    return false;
+
+  CLock lock(&pConn->logicPorcMutex);
+  pConn->lastPingTime = time(NULL);
+
+  SendNoBodyPkgToClient(pMsgHeader, _CMD_PING);
+
+  ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                     "CLogicSocket::_HandlePing() successful");
+  return true;
+}
+
+/*
+ * @ Description: 发送没有包体的数据包
+ * @ Paramater: LPSTRUC_MSG_HEADER pMsgHeader, unsigned short iMsgCode
+ * @ Returns: void
+ */
+void CLogicSocket::SendNoBodyPkgToClient(LPSTRUC_MSG_HEADER pMsgHeader,
+                                         unsigned short iMsgCode) {
+  CMemory *p_memory = CMemory::GetInstance();
+  char *p_sendbuf =
+      (char *)p_memory->AllocMemory(m_iLenMsgHeader + m_iLenPkgHeader, false);
+  char *p_tmpbuf = p_sendbuf;
+
+  memcpy(p_tmpbuf, pMsgHeader, m_iLenMsgHeader);
+  p_tmpbuf += m_iLenMsgHeader;
+
+  /* 指向包头 */
+  LPCOMM_PKG_HEADER pPkgHeader = (LPCOMM_PKG_HEADER)p_tmpbuf;
+  pPkgHeader->msgCode = htons(iMsgCode);
+  pPkgHeader->pkgLen = htons(m_iLenPkgHeader);
+  pPkgHeader->crc32 = 0;
+
+  msgSend(p_sendbuf);
   return;
 }

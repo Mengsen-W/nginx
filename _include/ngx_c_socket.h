@@ -17,6 +17,7 @@
 #include <atomic>
 #include <cstdint>
 #include <list>
+#include <map>
 #include <vector>
 
 #include "ngx_c_memory.h"
@@ -58,11 +59,6 @@ struct ngx_connection_s {
 
   // 网络地址
   struct sockaddr s_sockaddr; /* 保存对方地址 */
-  // char addr_text[100];        /* 地址文本信息 */
-
-  // 读写标记
-  // uint8_t r_ready; /* 读准备好标记 */
-  uint8_t w_ready; /* 写准备好标记 */
 
   uint32_t events;  //和epoll事件有关
 
@@ -83,7 +79,8 @@ struct ngx_connection_s {
   char *psendMemPointer; /* 用于释放 */
   char *psendbuf; /* 发送数据的缓冲区的头指针其实是包头+包体 */
 
-  time_t inRecyTime; /* 连接池回收时间 */
+  time_t inRecyTime;   /* 连接池回收时间 */
+  time_t lastPingTime; /* 心跳包间隔 */
 
   unsigned int isendlen; /* 要发送多少数据 */
 
@@ -200,6 +197,13 @@ class CSocket {
   std::list<lpngx_connection_t> m_recyconnectionList; /* 回收池队列 */
   std::atomic<int> m_total_recyconnection_n;          /* 回收池数量 */
   int m_RecyConnectionWaitTime;                       /* 回收池等待 */
+
+  int m_iWaitTime;       /* 心跳检查间隔 */
+  int m_ifkickTimeCount; /* 是否开启踢人时钟，1：开启   0：不开启 */
+  pthread_mutex_t m_timequeueMutex; /* 和时间队列有关的互斥量 */
+  std::multimap<time_t, LPSTRUC_MSG_HEADER> m_timerQueuemap; /* 时间队列 */
+  size_t m_cur_size_;    /* 时间队列的尺寸 */
+  time_t m_timer_value_; /* 当前计时队列头部时间值 */
 
   static void *ServerRecyConnectionThread(
       void *threadData); /* 回收队列交给子线程处理 */
