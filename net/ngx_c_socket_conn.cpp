@@ -47,6 +47,9 @@ void ngx_connection_s::GetOneToUse() {
   psendMemPointer = NULL;
   events = 0;
   lastPingTime = time(NULL);
+
+  FloodkickLastTime = 0;
+  FloodAttackCount = 0;
 }
 
 /*
@@ -206,6 +209,7 @@ void CSocket::inRecyConnectQueue(lpngx_connection_t pConn) {
   m_recyconnectionList.push_back(pConn);
   /* 等待ServerRecyConnectionThread线程自会处理 */
   ++m_total_recyconnection_n; /* 待释放连接队列大小+1 */
+  --m_onlineUserCount;
   return;
 }
 

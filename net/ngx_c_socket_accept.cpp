@@ -82,6 +82,12 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
       return; /* 有错误直接返回 */
     }
 
+    if (m_onlineUserCount >= m_worker_connections) { /* 接入人数过多 */
+      ngx_log_error_core(NGX_LOG_INFO, 0, "max online user count close");
+      close(s);
+      return;
+    }
+
     // 成功 accept4() / accept()
     newc = ngx_get_connection(s); /* 连接池分配 */
 
@@ -126,6 +132,9 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
     }
 
     if (m_ifkickTimeCount == 1) AddToTimerQueue(newc);
+
+    ++m_onlineUserCount;
+
     break;  //一般就是循环一次就跳出去
   } while (1);
 

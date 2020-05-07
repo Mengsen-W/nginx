@@ -20,11 +20,12 @@
 #include "ngx_macro.h"
 
 /*
- * @ Description: 读数据回调函数
+ * @ Description: 读数据回调函数处理消息头
  * @ Parameter: lpngx_connection_t c
  * @ Return: void
  */
 void CSocket::ngx_read_request_handler(lpngx_connection_t c) {
+  bool isflood = false;  //是否flood攻击；
   ssize_t reco = recvproc(c, c->precvbuf, c->irecvlen);
   if (reco <= 0) return;
 
@@ -34,7 +35,7 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t c) {
     /* 因为在ngx_get_connection()中已经把curStat成员赋值成_PKG_HD_INIT */
     if (reco == (ssize_t)m_iLenPkgHeader) { /* 正好收到完整包头，这里拆解包头 */
       /* 那就调用专门针对包头处理 */
-      ngx_read_request_handler_proc_p1(c);
+      ngx_read_request_handler_proc_p1(c, isflood);
     } else { /* 收到包头不完整 */
       /* 我们不能预料每个包的长度，也不能预料各种拆包/粘包情况 */
       /* 所以收到不完整包头【也算是缺包】是很可能的；*/
@@ -45,7 +46,7 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t c) {
   } else if (c->curStat == _PKG_HD_RECVING) { /* 接收包头中，包头不完整 */
     if (c->irecvlen == reco) { /* 要求收到的宽度和我实际收到的宽度相等 */
       /* 包头收完整了 */
-      ngx_read_request_handler_proc_p1(c);
+      ngx_read_request_handler_proc_p1(c, isflood);
     } else { /* 仍然不完整 */
       // c->curStat = _PKG_HD_RECVING; /* 没必要 */
       c->precvbuf = c->precvbuf + reco;
@@ -53,8 +54,12 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t c) {
     }
   } else if (c->curStat == _PKG_BD_INIT) { /* 刚好收完包头 */
     if (reco == c->irecvlen) {
+      if (m_floodAkEnable == 1) {
+        // Flood攻击检测是否开启
+        isflood = TestFlood(c);
+      }
       /* 收到的宽度等于要收的宽度，包体也收完整了 */
-      ngx_read_request_handler_proc_plast(c);
+      ngx_read_request_handler_proc_plast(c, isflood);
     } else { /* 收到宽度小于提供宽度 */
       c->curStat = _PKG_BD_RECVING;
       c->precvbuf = c->precvbuf + reco;
@@ -62,11 +67,20 @@ void CSocket::ngx_read_request_handler(lpngx_connection_t c) {
     }
   } else if (c->curStat == _PKG_BD_RECVING) { /* 包体不完整 */
     if (c->irecvlen == reco) {
-      ngx_read_request_handler_proc_plast(c);
+      if (m_floodAkEnable == 1) {
+        // Flood攻击检测是否开启
+        isflood = TestFlood(c);
+      }
+      ngx_read_request_handler_proc_plast(c, isflood);
     } else {
       c->precvbuf = c->precvbuf + reco;
       c->irecvlen = c->irecvlen - reco;
     }
+  }
+
+  if (isflood == true) {
+    ngx_log_error_core(NGX_LOG_INFO,0,"flood attack close client");
+    zdClosesocketProc(c);
   }
 
   return;
@@ -151,7 +165,8 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
  * @ Parameter: lpngx_connection_t c
  * @ Return: void
  */
-void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t c) {
+void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t c,
+                                               bool &isflood) {
   CMemory *p_memory = CMemory::GetInstance();
 
   LPCOMM_PKG_HEADER pPkgHeader;
@@ -181,7 +196,7 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t c) {
     c->precvbuf = c->dataHeadInfo;
     c->irecvlen = m_iLenPkgHeader;
   } else { /* 合法包头 */
-    /* 我现在要分配内存开始收包体，因为包体长度并不是固定的 */
+    /* 分配内存收包体因为包体长度并不固定 */
     char *pTmpBuffer =
         (char *)p_memory->AllocMemory(m_iLenMsgHeader + e_pkgLen, false);
     /* 分配内存【长度是 消息头长度  + 包头长度 + */
@@ -200,7 +215,11 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t c) {
     memcpy(pTmpBuffer, pPkgHeader, m_iLenPkgHeader);
     /* 直接把收到的包头拷贝进来 */
     if (e_pkgLen == m_iLenPkgHeader) { /* 该报文只有包头无包体 */
-      ngx_read_request_handler_proc_plast(c);
+      if (m_floodAkEnable == 1) {
+        // Flood攻击检测是否开启
+        isflood = TestFlood(c);
+      }
+      ngx_read_request_handler_proc_plast(c, isflood);
     } else { /* 收包体 */
       c->curStat = _PKG_BD_INIT;
       /* 当前状态发生改变，包头刚好收完，准备接收包体 */
@@ -221,9 +240,17 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t c) {
  * @ Parameter: lpngx_connect_t c
  * @ Return: void
  */
-void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t p_Conn) {
-  g_threadpool.inMsgRecvQueueAndSingal(
-      p_Conn->precvMemPointer); /* 整个数据包地址传入 */
+void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t p_Conn,
+                                                  bool &isflood) {
+  if (isflood == false) {
+    g_threadpool.inMsgRecvQueueAndSingal(
+        p_Conn->precvMemPointer); /* 整个数据包地址传入 */
+  } else {
+    //对于有攻击倾向的恶人，先把他的包丢掉
+    CMemory *p_memory = CMemory::GetInstance();
+    p_memory->FreeMemory(p_Conn->precvMemPointer);
+    //直接释放掉内存，根本不往消息队列入
+  }
 
   /* 内存不再需要释放，收完整了包，由inMsgRecvQueue()移入消息队列 */
   /* 那么释放内存就属于业务逻辑去干，不需要回收连接到连接池中干了 */

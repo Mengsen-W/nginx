@@ -87,6 +87,9 @@ struct ngx_connection_s {
   // 连接池状态
   lpngx_connection_t data; /* 后继指针 */
 
+  uint64_t FloodkickLastTime; /* 距离上次收到包时间 */
+  int FloodAttackCount; /* Flood攻击在该时间内收到包的次数统计 */
+
   pthread_mutex_t logicPorcMutex;
 };
 
@@ -122,7 +125,8 @@ class CSocket {
   size_t m_iLenPkgHeader; /* 包头长度 */
   size_t m_iLenMsgHeader; /* 消息头长度 */
 
-  int m_iWaitTime; /* 心跳检查间隔 */
+  int m_ifTimeOutKick; /* 控制超时 */
+  int m_iWaitTime;     /* 心跳检查间隔 */
 
  private:
   // 管理线程
@@ -167,10 +171,10 @@ class CSocket {
 
   ssize_t recvproc(lpngx_connection_t c, char *buff,
                    ssize_t buflen); /* 封装recv */
-  void ngx_read_request_handler_proc_p1(
-      lpngx_connection_t c); /* 接受包头的第一阶段 */
+  void ngx_read_request_handler_proc_p1(lpngx_connection_t c,
+                                        bool &isflood); /* 接受包头的第一阶段 */
   void ngx_read_request_handler_proc_plast(
-      lpngx_connection_t c); /* 收到一个完整包后处理 */
+      lpngx_connection_t c, bool &isflood); /* 收到一个完整包后处理 */
 
   void ngx_write_request_handler(lpngx_connection_t pConn); /* 发消息回调函数 */
 
@@ -218,6 +222,8 @@ class CSocket {
   size_t m_cur_size_;    /* 时间队列的尺寸 */
   time_t m_timer_value_; /* 当前计时队列头部时间值 */
 
+  bool TestFlood(lpngx_connection_t pConn); /* 测试是否flood攻击成立 */
+
   static void *ServerRecyConnectionThread(
       void *threadData); /* 回收队列交给子线程处理 */
   static void *ServerSendQueueThread(void *threadData); /* 发送线程 */
@@ -230,6 +236,12 @@ class CSocket {
       m_events[NGX_MAX_EVENTS]; /* 用于在epoll_wait()中承载返回的所发生的事件 */
 
   std::vector<lpngx_listening_t> m_ListenSocketList; /* 监听套接字队列 */
+
+  std::atomic<int> m_onlineUserCount; /* 当前用户数 */
+
+  int m_floodAkEnable;              /* 是否检测泛洪攻击 */
+  unsigned int m_floodTimeInterval; /* 收发数据包减隔 */
+  int m_floodKickCount;             /* 累计多少次踢人 */
 };
 
 #endif

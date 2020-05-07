@@ -18,6 +18,7 @@
 #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -33,6 +34,7 @@
 CSocket::CSocket()
     : m_iLenPkgHeader(sizeof(COMM_PKG_HEADER)),
       m_iLenMsgHeader(sizeof(STRUC_MSG_HEADER)),
+      m_ifTimeOutKick(0),
       m_iWaitTime(0),
       m_ListenPortCount(0),
       m_worker_connections(0),
@@ -47,7 +49,11 @@ CSocket::CSocket()
       m_ifkickTimeCount(0),
       m_cur_size_(0),
       m_timer_value_(0),
-      m_iSendMsgQueueCount(0) {}
+      m_iSendMsgQueueCount(0),
+      m_onlineUserCount(0),
+      m_floodAkEnable(0),
+      m_floodTimeInterval(0),
+      m_floodKickCount(0) {}
 
 /*
  * @ Description: 析构函数
@@ -99,6 +105,16 @@ void CSocket::ReadConf() {
   m_iWaitTime = p_config->GetIntDefault("Sock_MaxWaitTime", m_iWaitTime);
   /* 最少5秒发一次心跳包 */
   m_iWaitTime = (m_iWaitTime > 5) ? m_iWaitTime : 5;
+
+  m_ifTimeOutKick =
+      p_config->GetIntDefault("Sock_TimeOutKick", m_ifTimeOutKick);
+
+  m_floodAkEnable =
+      p_config->GetIntDefault("Sock_FloodAttackKickEnable", m_floodAkEnable);
+  m_floodTimeInterval =
+      p_config->GetIntDefault("Sock_FloodTimeInterval", m_floodTimeInterval);
+  m_floodKickCount =
+      p_config->GetIntDefault("Sock_FloodKickCounter", m_ifkickTimeCount);
 
   return;
 }
@@ -693,4 +709,38 @@ void CSocket::zdClosesocketProc(lpngx_connection_t p_Conn) {
 
   inRecyConnectQueue(p_Conn);
   return;
+}
+
+/*
+ * @ Description: 判断是否为flood攻击
+ * @ Parameters: lpngx_connection_t pConn
+ * @ Return: bool
+ */
+bool CSocket::TestFlood(lpngx_connection_t pConn) {
+  struct timeval sCurrTime;  //当前时间结构
+  uint64_t iCurrTime;        //当前时间（单位：毫秒）
+  bool reco = false;
+
+  gettimeofday(&sCurrTime, NULL);  //取得当前时间
+  iCurrTime = (sCurrTime.tv_sec * 1000 + sCurrTime.tv_usec / 1000);  //毫秒
+  if ((iCurrTime - pConn->FloodkickLastTime) <
+      m_floodTimeInterval)  //两次收到包的时间 < 100毫秒
+  {
+    //发包太频繁记录
+    pConn->FloodAttackCount++;
+    pConn->FloodkickLastTime = iCurrTime;
+  } else {
+    //既然发布不这么频繁，则恢复计数值
+    pConn->FloodAttackCount = 0;
+    pConn->FloodkickLastTime = iCurrTime;
+  }
+
+  if (pConn->FloodAttackCount >= m_floodKickCount) {
+    //可以踢此人的标志
+    ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                       "pConn->FloodAttackCount=%d,m_floodKickCount=%d.",
+                       pConn->FloodAttackCount, m_floodKickCount);
+    reco = true;
+  }
+  return reco;
 }

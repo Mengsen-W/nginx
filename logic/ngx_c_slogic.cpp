@@ -161,6 +161,11 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
   CLock lock(&pConn->logicPorcMutex);
 
   // 业务逻辑
+  LPSTRUCT_REGISTER p_RecvInfo = (LPSTRUCT_REGISTER)pPkgBody;
+  p_RecvInfo->iType = ntohl(p_RecvInfo->iType);
+  /* 防止客户端发送过来畸形包 */
+  p_RecvInfo->username[sizeof(p_RecvInfo->username) - 1] = 0;
+  p_RecvInfo->password[sizeof(p_RecvInfo->password) - 1] = 0;
   ngx_log_error_core(NGX_LOG_DEBUG, 0,
                      "CLogicSocket::_HandleRegister() successful");
   // 业务处理结束
@@ -209,6 +214,10 @@ bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,
   CLock lock(&pConn->logicPorcMutex);
 
   // 业务逻辑
+  LPSTRUCT_LOGIN p_RecvInfo = (LPSTRUCT_LOGIN)pPkgBody;
+  /* 防止客户端发送过来畸形包 */
+  p_RecvInfo->username[sizeof(p_RecvInfo->username) - 1] = 0;
+  p_RecvInfo->password[sizeof(p_RecvInfo->password) - 1] = 0;
   ngx_log_error_core(NGX_LOG_DEBUG, 0,
                      "CLogicSocket::_HandleLogin() successful");
   // 业务处理结束
@@ -293,9 +302,10 @@ void CLogicSocket::procPingTimeOutChecking(LPSTRUC_MSG_HEADER tmpmsg,
 
   if (tmpmsg->iCurrsequence == tmpmsg->pConn->iCurrsequence) { /* 连接没断 */
     lpngx_connection_t p_Conn = tmpmsg->pConn;
-
-    if ((cur_time - p_Conn->lastPingTime) >
-        (m_iWaitTime * 3 + 10)) { /* 计算方法 */
+    if (m_ifTimeOutKick == 1) {
+      zdClosesocketProc(p_Conn);
+    } else if ((cur_time - p_Conn->lastPingTime) >
+               (m_iWaitTime * 3 + 10)) { /* 计算方法 */
 
       //踢出去【如果此时此刻该用户正好断线，则这个socket可能立即被后续上来的连接复用
       //如果真有人这么倒霉，赶上这个点了，那么可能错踢，错踢就错踢】

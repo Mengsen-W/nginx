@@ -98,14 +98,17 @@ LPSTRUC_MSG_HEADER CSocket::GetOverTimeTimer(time_t cur_time) {
   if (earliesttime <= cur_time) {
     ptmp = RemoveFirstTimer();
 
-    //因为下次超时的时间我们也依然要判断，所以还要把这个节点加回来
-    time_t newinqueutime = cur_time + (m_iWaitTime);
-    LPSTRUC_MSG_HEADER tmpMsgHeader = (LPSTRUC_MSG_HEADER)p_memory->AllocMemory(
-        sizeof(STRUC_MSG_HEADER), false);
-    tmpMsgHeader->pConn = ptmp->pConn;
-    tmpMsgHeader->iCurrsequence = ptmp->iCurrsequence;
-    m_timerQueuemap.insert(std::make_pair(newinqueutime, tmpMsgHeader));
-    m_cur_size_++;
+    if (m_ifkickTimeCount != 1) { /* 不需要在加进去 */
+      //因为下次超时的时间我们也依然要判断，所以还要把这个节点加回来
+      time_t newinqueutime = cur_time + (m_iWaitTime);
+      LPSTRUC_MSG_HEADER tmpMsgHeader =
+          (LPSTRUC_MSG_HEADER)p_memory->AllocMemory(sizeof(STRUC_MSG_HEADER),
+                                                    false);
+      tmpMsgHeader->pConn = ptmp->pConn;
+      tmpMsgHeader->iCurrsequence = ptmp->iCurrsequence;
+      m_timerQueuemap.insert(std::make_pair(newinqueutime, tmpMsgHeader));
+      m_cur_size_++;
+    }
 
     if (m_cur_size_ > 0) {
       //这个判断条件必要，因为以后我们可能在这里扩充别的代码
@@ -183,7 +186,7 @@ void *CSocket::ServerTimerQueueMonitorThread(void *threadData) {
       //时间队列中最近发生事情的时间放到 absolute_time里；
       absolute_time = pSocketObj->m_timer_value_;
       cur_time = time(NULL);
-      
+
       if (absolute_time < cur_time) { /* 时间到 */
 
         std::list<LPSTRUC_MSG_HEADER> m_lsIdleList; /* 保存要处理的内容 */
@@ -193,11 +196,11 @@ void *CSocket::ServerTimerQueueMonitorThread(void *threadData) {
         if (err != 0)
           ngx_log_error_core(
               NGX_LOG_ERR, err,
-              "CSocket::ServerTimerQueueMonitorThread()中pthread_"
-              "mutex_lock()error");
+              "CSocket::ServerTimerQueueMonitorThread()->pthread_"
+              "mutex_lock() failed");
 
         while ((result = pSocketObj->GetOverTimeTimer(cur_time)) !=
-               NULL) { /* 一次性的把所有超时节点都拿过来 */
+               NULL) { /* 一次性的把所有可能超时节点都拿过来 */
 
           m_lsIdleList.push_back(result); /* 预处理队列 */
         }
