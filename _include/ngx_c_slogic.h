@@ -27,8 +27,8 @@ class CLogicSocket : public CSocket {
                     char *pPkgBody, unsigned short size); /* 登录业务 */
   bool _HandlePing(lpngx_connection_t pConn, LPSTRUC_MSG_HEADER pMsgHeader,
                    char *pPkgBody, unsigned short size); /* 心跳包业务 */
-  virtual void procPingTimeOutChecking(LPSTRUC_MSG_HEADER tmpmsg,
-                                       time_t cur_time); /* 心跳包时间逻辑 */
+  virtual void procPingTimeOutChecking(
+      LPSTRUC_MSG_HEADER tmpmsg, time_t cur_time) override; /* 心跳包时间逻辑 */
   void SendNoBodyPkgToClient(LPSTRUC_MSG_HEADER pMsgHeader,
                              unsigned short iMsgCode); /* 发送无包体的数据包 */
 };

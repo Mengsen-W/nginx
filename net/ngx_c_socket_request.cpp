@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-30 17:23:49
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-03 11:24:34
+ * @Last Modified time: 2020-05-07 13:24:31
  * @Description: 读事件回调
  */
 
@@ -85,11 +85,8 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
   n = recv(c->fd, buff, buflen, 0);
 
   if (n == 0) { /* 客户端断开 */
-    if (close(c->fd) == -1)
-      ngx_log_error_core(NGX_LOG_ALERT, errno,
-                         "CSocket::recvproc()->close(%d) failed", c->fd);
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "client close");
-    inRecyConnectQueue(c);
+    ngx_log_error_core(NGX_LOG_DEBUG, 0, "recvproc client close");
+    zdClosesocketProc(c);
     return -1;
   }
   if (n < 0) { /* 这被认为有错误发生 */
@@ -138,19 +135,14 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
       ngx_log_error_core(NGX_LOG_INFO, errno, "CSocket::recvproc() error");
     }
 
-    if (close(c->fd)) {
-      ngx_log_error_core(NGX_LOG_ERR, errno,
-                         "errno CSocket::recvproc()->close() filed");
-    }
-
     /* 这种真正的错误就要，直接关闭套接字，释放连接池中连接了 */
-    inRecyConnectQueue(c);
+    zdClosesocketProc(c);
     return -1;
   }
 
   /* 能走到这里的，就认为收到了有效数据 */
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_recvpro() success");
+  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_recvpro() success [data %d]", n);
   return n; /* 返回收到的字节数 */
 }
 

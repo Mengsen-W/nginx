@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-03 11:05:49
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-03 15:52:22
+ * @Last Modified time: 2020-05-07 12:10:40
  * @Description: 业务处理类
  */
 
@@ -279,5 +279,34 @@ void CLogicSocket::SendNoBodyPkgToClient(LPSTRUC_MSG_HEADER pMsgHeader,
   pPkgHeader->crc32 = 0;
 
   msgSend(p_sendbuf);
+  return;
+}
+
+/*
+ * @ Description: 处理心跳包
+ * @ Paramater: LPSTRUC_MSG_HEADER tmpmsg, time_t cur_time
+ * @ Return: void
+ */
+void CLogicSocket::procPingTimeOutChecking(LPSTRUC_MSG_HEADER tmpmsg,
+                                           time_t cur_time) {
+  CMemory *p_memory = CMemory::GetInstance();
+
+  if (tmpmsg->iCurrsequence == tmpmsg->pConn->iCurrsequence) { /* 连接没断 */
+    lpngx_connection_t p_Conn = tmpmsg->pConn;
+
+    if ((cur_time - p_Conn->lastPingTime) >
+        (m_iWaitTime * 3 + 10)) { /* 计算方法 */
+
+      //踢出去【如果此时此刻该用户正好断线，则这个socket可能立即被后续上来的连接复用
+      //如果真有人这么倒霉，赶上这个点了，那么可能错踢，错踢就错踢】
+      ngx_log_error_core(NGX_LOG_INFO, 0, "no ping pack take away");
+      zdClosesocketProc(p_Conn);
+    }
+
+    // 释放
+    p_memory->FreeMemory(tmpmsg);
+  } else {
+    p_memory->FreeMemory(tmpmsg);
+  }
   return;
 }

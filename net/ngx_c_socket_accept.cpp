@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-29 21:17:17
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-02 15:41:21
+ * @Last Modified time: 2020-05-07 13:29:25
  * @Description: 处理accept
  */
 
@@ -125,6 +125,7 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
       return;
     }
 
+    if (m_ifkickTimeCount == 1) AddToTimerQueue(newc);
     break;  //一般就是循环一次就跳出去
   } while (1);
 

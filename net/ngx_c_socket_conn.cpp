@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-29 20:42:07
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-03 15:51:10
+ * @Last Modified time: 2020-05-07 11:58:06
  * @Description: 连接池相关函数
  */
 
@@ -182,14 +182,30 @@ void CSocket::ngx_close_connection(lpngx_connection_t c) {
 void CSocket::inRecyConnectQueue(lpngx_connection_t pConn) {
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::inRecyConnectQueue().");
 
+  std::list<lpngx_connection_t>::iterator pos;
+  bool iffind = false;
+
   CLock lock(&m_recyconnqueueMutex);
 
-  pConn->inRecyTime = time(NULL); /* 记录回收时间 */
-  ++pConn->iCurrsequence;
-  m_recyconnectionList.push_back(
-      pConn); /* 等待ServerRecyConnectionThread线程自会处理 */
-  ++m_total_recyconnection_n; /* 待释放连接队列大小+1 */
+  //如下判断防止连接被多次扔到回收站中来
+  for (pos = m_recyconnectionList.begin(); pos != m_recyconnectionList.end();
+       ++pos) {
+    if ((*pos) == pConn) {
+      iffind = true;
+      break;
+    }
+  }
+  if (iffind == true)  //找到了，不必再入了
+  {
+    //我有义务保证这个只入一次嘛
+    return;
+  }
 
+  pConn->inRecyTime = time(NULL);  //记录回收时间
+  ++pConn->iCurrsequence;
+  m_recyconnectionList.push_back(pConn);
+  /* 等待ServerRecyConnectionThread线程自会处理 */
+  ++m_total_recyconnection_n; /* 待释放连接队列大小+1 */
   return;
 }
 
@@ -232,7 +248,7 @@ void *CSocket::ServerRecyConnectionThread(void *threadData) {
           //如果不是要整个系统退出，你可以continue，否则就得要强制释放
           continue; /* 没到释放的时间 */
         }
-        if (p_Conn->iThrowsendCount != 0) {
+        if (p_Conn->iThrowsendCount > 0) {
           //这确实不应该，打印个日志吧；
           ngx_log_error_core(
               NGX_LOG_INFO, 0,

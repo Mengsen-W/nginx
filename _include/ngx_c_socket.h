@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-03 15:42:21
+ * @Last Modified time: 2020-05-07 12:15:01
  * @Description: 监听套接字结构
  */
 
@@ -106,6 +106,9 @@ class CSocket {
 
   virtual void threadRecvProcFunc(char *pMsgBuf); /* 业务处理函数 */
 
+  virtual void procPingTimeOutChecking(LPSTRUC_MSG_HEADER tmpmsg,
+                                       time_t cur_time); /* 检测 */
+
   virtual bool Initialize_subproc(); /* 初始化函数[子进程中执行] */
   virtual void Shutdown_subproc();   /* 清理子线程 */
 
@@ -113,9 +116,13 @@ class CSocket {
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
 
  protected:
-  void msgSend(char *pSendbuf); /* 推入发送队列 */
-  size_t m_iLenPkgHeader;       /* 包头长度 */
-  size_t m_iLenMsgHeader;       /* 消息头长度 */
+  void msgSend(char *pSendbuf);                      /* 推入发送队列 */
+  void zdClosesocketProc(lpngx_connection_t p_Conn); /* 心跳包超时 */
+
+  size_t m_iLenPkgHeader; /* 包头长度 */
+  size_t m_iLenMsgHeader; /* 消息头长度 */
+
+  int m_iWaitTime; /* 心跳检查间隔 */
 
  private:
   // 管理线程
@@ -172,6 +179,13 @@ class CSocket {
 
   void clearMsgSendQueue(); /* 清空发送队列 */
 
+  void AddToTimerQueue(lpngx_connection_t pConn); /* 加入心跳队列 */
+  time_t GetEarliestTime();                       /* 取连接 */
+  LPSTRUC_MSG_HEADER RemoveFirstTimer();          /* 取得最早并删除 */
+  LPSTRUC_MSG_HEADER GetOverTimeTimer(time_t cur_time); /* 获取超时 */
+  void DeleteFromTimerQueue(lpngx_connection_t pConn);  /* 删除 */
+  void clearAllFromTimerQueue();                        /* 清空队列 */
+
   int m_ListenPortCount;    /* 所监听的端口数量 */
   int m_worker_connections; /* worker进程最大连接数 */
 
@@ -198,7 +212,6 @@ class CSocket {
   std::atomic<int> m_total_recyconnection_n;          /* 回收池数量 */
   int m_RecyConnectionWaitTime;                       /* 回收池等待 */
 
-  int m_iWaitTime;       /* 心跳检查间隔 */
   int m_ifkickTimeCount; /* 是否开启踢人时钟，1：开启   0：不开启 */
   pthread_mutex_t m_timequeueMutex; /* 和时间队列有关的互斥量 */
   std::multimap<time_t, LPSTRUC_MSG_HEADER> m_timerQueuemap; /* 时间队列 */
@@ -208,6 +221,7 @@ class CSocket {
   static void *ServerRecyConnectionThread(
       void *threadData); /* 回收队列交给子线程处理 */
   static void *ServerSendQueueThread(void *threadData); /* 发送线程 */
+  static void *ServerTimerQueueMonitorThread(void *threadData); /* 监视和处理 */
 
   std::list<char *> m_MsgSendQueue;      /* 发送数据消息队列 */
   std::atomic<int> m_iSendMsgQueueCount; /* 发消息队列大小 */
