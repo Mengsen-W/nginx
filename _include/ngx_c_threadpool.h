@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-05-02 14:32:37
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-03 15:38:50
+ * @Last Modified time: 2020-05-08 09:13:35
  * @Description: 线程池
  */
 
@@ -25,6 +25,10 @@ class CThreadPool {
   void Call();                /* 激发条件量 */
 
   void inMsgRecvQueueAndSingal(char *buf); /* 加入业务队列 */
+
+  int getRecvMsgQueueCount() {
+    return m_iRecvMsgQueueCount;
+  } /* 获取接收消息队列大小 */
 
  private:
   static void *ThreadFunc(void *threadData); /* 子线程入口函数 */
@@ -52,7 +56,7 @@ class CThreadPool {
   std::vector<ThreadItem *> m_threadVector; /* 线程容器 */
 
   std::list<char *> m_MsgRecvQueue; /* 接受消息队列 */
-  int m_iRecvMsgQueueCount;            /* 收消息队列大小 */
+  int m_iRecvMsgQueueCount;         /* 收消息队列大小 */
 };
 
 #endif

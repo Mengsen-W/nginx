@@ -49,7 +49,7 @@ void CSocket::AddToTimerQueue(lpngx_connection_t pConn) {
   m_timer_value_ =
       GetEarliestTime(); /* 计时队列头部时间值保存到m_timer_value_里 */
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::AddTOTimeQueue() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::AddTOTimeQueue() success");
   return;
 }
 
@@ -79,7 +79,7 @@ LPSTRUC_MSG_HEADER CSocket::RemoveFirstTimer() {
   p_tmp = pos->second;
   m_timerQueuemap.erase(pos);
   --m_cur_size_;
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::RemoveFirstTimer() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::RemoveFirstTimer() success");
   return p_tmp;
 }
 
@@ -215,7 +215,7 @@ void *CSocket::ServerTimerQueueMonitorThread(void *threadData) {
         while (!m_lsIdleList.empty()) {
           tmpmsg = m_lsIdleList.front();
           m_lsIdleList.pop_front();
-          ngx_log_error_core(NGX_LOG_DEBUG, 0,
+          ngx_log_error_core(NGX_LOG_INFO, 0,
                              "CSocket::Begin procPingTimeOutChecking()");
           pSocketObj->procPingTimeOutChecking(
               tmpmsg, cur_time); /* 这里需要检查心跳超时问题 */

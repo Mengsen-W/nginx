@@ -50,6 +50,7 @@ void ngx_connection_s::GetOneToUse() {
 
   FloodkickLastTime = 0;
   FloodAttackCount = 0;
+  iSendCount = 0;
 }
 
 /*
@@ -121,8 +122,8 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
     p_Conn->GetOneToUse();
     --m_free_connection_n;
     p_Conn->fd = isock;
-    ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                       "CSocket::ngx_get_connection() have sit success");
+    // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+    //                    "CSocket::ngx_get_connection() have sit success");
     return p_Conn;
   }
 
@@ -135,8 +136,8 @@ lpngx_connection_t CSocket::ngx_get_connection(int isock) {
   m_connectionList.push_back(p_Conn);
   ++m_total_connection_n;
   p_Conn->fd = isock;
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CSocket::ngx_get_connection() not empty success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "CSocket::ngx_get_connection() not empty success");
   return p_Conn;
 }
 
@@ -158,7 +159,7 @@ void CSocket::ngx_free_connection(lpngx_connection_t pConn) {
   //空闲连接数+1
   ++m_free_connection_n;
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "free connection success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "free connection success");
   return;
 }
 
@@ -183,7 +184,7 @@ void CSocket::ngx_close_connection(lpngx_connection_t c) {
  * @ Return: void *
  */
 void CSocket::inRecyConnectQueue(lpngx_connection_t pConn) {
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::inRecyConnectQueue().");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::inRecyConnectQueue().");
 
   std::list<lpngx_connection_t>::iterator pos;
   bool iffind = false;
@@ -270,7 +271,7 @@ void *CSocket::ServerRecyConnectionThread(void *threadData) {
         pSocketObj->m_recyconnectionList.erase(pos); /* 删除节点 */
 
         ngx_log_error_core(
-            NGX_LOG_DEBUG, 0,
+            NGX_LOG_INFO, 0,
             "CSocket::ServerRecyConnectionThread() link[%d] return pool",
             p_Conn->fd);
 

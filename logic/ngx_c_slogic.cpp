@@ -89,9 +89,8 @@ void CLogicSocket::threadRecvProcFunc(char *pMsgBuf) {
     int calccrc = CCRC32::GetInstance()->Get_CRC(
         (unsigned char *)pPkgBody,
         pkglen - m_iLenPkgHeader);  //计算纯包体的crc值
-    if (calccrc !=
-        pPkgHeader
-            ->crc32)  //服务器端根据包体计算crc值，和客户端传递过来的包头中的crc32信息比较
+    if (calccrc != pPkgHeader->crc32)
+    //服务器端根据包体计算crc值，和客户端传递过来的包头中的crc32信息比较
     {
       ngx_log_stderr(
           0,
@@ -107,10 +106,9 @@ void CLogicSocket::threadRecvProcFunc(char *pMsgBuf) {
 
   //我们要做一些判断
   //(1)如果从收到客户端发送来的包，到服务器释放一个线程池中的线程处理该包的过程中，客户端断开了，那显然，这种收到的包我们就不必处理了；
-  if (p_Conn->iCurrsequence !=
-      pMsgHeader
-          ->iCurrsequence)  //该连接池中连接以被其他tcp连接【其他socket】占用，这说明原来的
-                            //客户端和本服务器的连接断了，这种包直接丢弃不理
+  if (p_Conn->iCurrsequence != pMsgHeader->iCurrsequence)
+  //该连接池中连接以被其他tcp连接【其他socket】占用，这说明原来的
+  //客户端和本服务器的连接断了，这种包直接丢弃不理
   {
     return;  //丢弃不理这种包了【客户端断开了】
   }
@@ -166,8 +164,8 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
   /* 防止客户端发送过来畸形包 */
   p_RecvInfo->username[sizeof(p_RecvInfo->username) - 1] = 0;
   p_RecvInfo->password[sizeof(p_RecvInfo->password) - 1] = 0;
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleRegister() successful");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "CLogicSocket::_HandleRegister() successful");
   // 业务处理结束
 
   // 服务端回复消息
@@ -190,8 +188,8 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,
   pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
   pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleRegister() begin to send data");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "CLogicSocket::_HandleRegister() begin to send data");
   // send 先不写，防止泄漏
   msgSend(p_sendbuf);
   return true;
@@ -215,32 +213,26 @@ bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,
 
   // 业务逻辑
   LPSTRUCT_LOGIN p_RecvInfo = (LPSTRUCT_LOGIN)pPkgBody;
-  /* 防止客户端发送过来畸形包 */
   p_RecvInfo->username[sizeof(p_RecvInfo->username) - 1] = 0;
   p_RecvInfo->password[sizeof(p_RecvInfo->password) - 1] = 0;
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandleLogin() successful");
-  // 业务处理结束
 
-  // 服务端回复消息
   LPCOMM_PKG_HEADER pPkgHeader;
   CMemory *p_memory = CMemory::GetInstance();
   CCRC32 *p_crc32 = CCRC32::GetInstance();
+
   int iSendLen = sizeof(STRUCT_LOGIN);
-  char *p_sendbuf = static_cast<char *>(p_memory->AllocMemory(
-      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false));
+  char *p_sendbuf = (char *)p_memory->AllocMemory(
+      m_iLenMsgHeader + m_iLenPkgHeader + iSendLen, false);
   memcpy(p_sendbuf, pMsgHeader, m_iLenMsgHeader);
-  pPkgHeader = reinterpret_cast<LPCOMM_PKG_HEADER>(p_sendbuf + m_iLenMsgHeader);
+  pPkgHeader = (LPCOMM_PKG_HEADER)(p_sendbuf + m_iLenMsgHeader);
   pPkgHeader->msgCode = _CMD_LOGIN;
   pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
-  pPkgHeader->pkgLen = htons(pPkgHeader->pkgLen);
-  LPSTRUCT_LOGIN p_sendInfo = reinterpret_cast<LPSTRUCT_LOGIN>(
-      p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
+  pPkgHeader->pkgLen = htons(m_iLenPkgHeader + iSendLen);
+  LPSTRUCT_LOGIN p_sendInfo =
+      (LPSTRUCT_LOGIN)(p_sendbuf + m_iLenMsgHeader + m_iLenPkgHeader);
   pPkgHeader->crc32 = p_crc32->Get_CRC((unsigned char *)p_sendInfo, iSendLen);
   pPkgHeader->crc32 = htonl(pPkgHeader->crc32);
-  // send 先不写，防止泄漏
   msgSend(p_sendbuf);
-  p_memory->FreeMemory(p_sendbuf);
   return true;
 }
 
@@ -261,8 +253,8 @@ bool CLogicSocket::_HandlePing(lpngx_connection_t pConn,
 
   SendNoBodyPkgToClient(pMsgHeader, _CMD_PING);
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CLogicSocket::_HandlePing() successful");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "CLogicSocket::_HandlePing() successful");
   return true;
 }
 

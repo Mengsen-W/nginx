@@ -2,7 +2,7 @@
  * @Author: Mengsen.Wang
  * @Date: 2020-04-28 19:54:31
  * @Last Modified by: Mengsen.Wang
- * @Last Modified time: 2020-05-07 12:15:01
+ * @Last Modified time: 2020-05-08 09:12:03
  * @Description: 监听套接字结构
  */
 
@@ -91,6 +91,7 @@ struct ngx_connection_s {
   int FloodAttackCount; /* Flood攻击在该时间内收到包的次数统计 */
 
   pthread_mutex_t logicPorcMutex;
+  std::atomic<int> iSendCount;
 };
 
 // 消息头结构
@@ -117,6 +118,8 @@ class CSocket {
 
   int ngx_epoll_init();                    /* 子进程epoll init */
   int ngx_epoll_process_events(int timer); /* 获取事件消息外部会调用*/
+
+  void printTDInfo(); /* 打印统计信息 */
 
  protected:
   void msgSend(char *pSendbuf);                      /* 推入发送队列 */
@@ -242,6 +245,10 @@ class CSocket {
   int m_floodAkEnable;              /* 是否检测泛洪攻击 */
   unsigned int m_floodTimeInterval; /* 收发数据包减隔 */
   int m_floodKickCount;             /* 累计多少次踢人 */
+
+  //统计用途
+  time_t m_lastprintTime; /* 上次打印统计信息的时间(10秒钟打印一次) */
+  int m_iDiscardSendPkgCount; /* 丢弃的发送数据包数量 */
 };
 
 #endif

@@ -99,7 +99,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
   n = recv(c->fd, buff, buflen, 0);
 
   if (n == 0) { /* 客户端断开 */
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "recvproc client close");
+    ngx_log_error_core(NGX_LOG_INFO, 0, "recvproc client close");
     zdClosesocketProc(c);
     return -1;
   }
@@ -156,7 +156,7 @@ ssize_t CSocket::recvproc(lpngx_connection_t c, char *buff, ssize_t buflen) {
 
   /* 能走到这里的，就认为收到了有效数据 */
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_recvpro() success [data %d]", n);
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_recvpro() success [data %d]", n);
   return n; /* 返回收到的字节数 */
 }
 
@@ -230,8 +230,8 @@ void CSocket::ngx_read_request_handler_proc_p1(lpngx_connection_t c,
     }
   }
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "ngx_wait_request_handle_proc_p1() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "ngx_wait_request_handle_proc_p1() success");
   return;
 }
 
@@ -258,8 +258,8 @@ void CSocket::ngx_read_request_handler_proc_plast(lpngx_connection_t p_Conn,
   p_Conn->curStat = _PKG_HD_INIT;
   p_Conn->precvbuf = p_Conn->dataHeadInfo; /* 设置好收包的位置 */
   p_Conn->irecvlen = m_iLenPkgHeader; /* 设置好要接收数据的大小 */
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "ngx_read_request_handler_proc_plast() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "ngx_read_request_handler_proc_plast() success");
   return;
 }
 
@@ -279,7 +279,7 @@ ssize_t CSocket::sendproc(lpngx_connection_t c, char *buff, ssize_t size) {
       //(1) n == size也就是想发送多少都发送成功了，这表示完全发完毕了
       //(2) n < size
       //没发送完毕，那肯定是发送缓冲区满了，所以也不必要重试发送，直接返回吧
-      ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::sendproc() success");
+      // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::sendproc() success");
       return n;  //返回本次发送的字节数
     }
 
@@ -340,9 +340,9 @@ void CSocket::ngx_write_request_handler(lpngx_connection_t pConn) {
                          "event() faileds");
     }
 
-    ngx_log_error_core(
-        NGX_LOG_DEBUG, 0,
-        "CSocket::ngx_write_request_handler() success send data");
+    // ngx_log_error_core(
+    //     NGX_LOG_DEBUG, 0,
+    //     "CSocket::ngx_write_request_handler() success send data");
   }
 
   //能走下来的，要么数据发送完毕了，要么对端断开了，那么执行收尾工作吧；

@@ -64,7 +64,7 @@ lblfor:
       goto lblfor;
     }
   }
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadpool::Create() successful");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadpool::Create() successful");
   return true;
 }
 
@@ -83,10 +83,9 @@ void* CThreadPool::ThreadFunc(void* threadData) {
 
   pthread_t tid = pthread_self();
   if (tid != pthread->_Handle) {
-    ngx_log_error_core(NGX_LOG_DEBUG, 0, "[thread = %d]tid != _Handle", tid);
+    // ngx_log_error_core(NGX_LOG_DEBUG, 0, "[thread = %d]tid != _Handle", tid);
   }
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ThreadFunc() begin");
   while (true) {
     err = pthread_mutex_lock(&m_pthreadMutex);
     if (err != 0)
@@ -97,8 +96,8 @@ void* CThreadPool::ThreadFunc(void* threadData) {
     while ((pThreadPoolObj->m_MsgRecvQueue.size() == 0) &&
            m_shutdown == false) { /* 用while防止虚假唤醒 */
       if (pthread->ifrunning == false) pthread->ifrunning = true;
-      ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                         "CThreadPool [tid = %d] pthread wait()", tid);
+/*       ngx_log_error_core(NGX_LOG_DEBUG, 0,
+                         "CThreadPool [tid = %d] pthread wait()", tid); */
       pthread_cond_wait(&m_pthreadCond, &m_pthreadMutex);
     }
 
@@ -120,7 +119,7 @@ void* CThreadPool::ThreadFunc(void* threadData) {
     p_memory->FreeMemory(jobbuf);
     --pThreadPoolObj->m_iRunningThreadNUm;
   }
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadPool::ThreadFunc() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadPool::ThreadFunc() success");
   return static_cast<void*>(0);
 }
 
@@ -185,7 +184,7 @@ void CThreadPool::Call() {
     }
   }
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadPool::Call() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "CThreadPool::Call() success");
   return;
 }
 
@@ -216,8 +215,8 @@ void CThreadPool::inMsgRecvQueueAndSingal(char* buf) {
   }
 
   Call(); /* 唤醒进程 */
-  ngx_log_error_core(NGX_LOG_DEBUG, 0,
-                     "CThreadPool::inMsgRecvQueueAndSingal() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0,
+  //                    "CThreadPool::inMsgRecvQueueAndSingal() success");
   return;
 }
 

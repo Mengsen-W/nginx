@@ -276,7 +276,7 @@ void CSocket::ngx_close_listening_sockets() {
  * @ Returns: int
  */
 int CSocket::ngx_epoll_init() {
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "begin ngx_epoll_init()");
+  ngx_log_error_core(NGX_LOG_INFO, 0, "begin ngx_epoll_init()");
   // epoll_creat
   m_epollhandle = epoll_create(m_worker_connections);
   if (m_epollhandle == -1) {
@@ -400,7 +400,7 @@ bool CSocket::Initialize_subproc() {
       return false;
     }
   }
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::Initialize_subProc success");
+  ngx_log_error_core(NGX_LOG_INFO, 0, "CSocket::Initialize_subProc success");
   return true;
 }
 
@@ -445,7 +445,7 @@ int CSocket::ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag,
         eventtype, flag, bcaction);
     return -1;
   }
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_epoll_ctl() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "ngx_epoll_ctl() success");
   return 1;
 }
 
@@ -456,7 +456,7 @@ int CSocket::ngx_epoll_oper_event(int fd, uint32_t eventtype, uint32_t flag,
  */
 int CSocket::ngx_epoll_process_events(int timer) {
   int events = epoll_wait(m_epollhandle, m_events, NGX_MAX_EVENTS, timer);
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_wait()");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "epoll_wait()");
 
   if (events == -1) {     /* 产生错误 */
     if (errno == EINTR) { /* 信号过来 */
@@ -508,16 +508,44 @@ int CSocket::ngx_epoll_process_events(int timer) {
  * @ Description: 将数据发送到发送队列中
  */
 void CSocket::msgSend(char *pSendbuf) {
-  CLock lock(&m_sendMessageQueueMutex);
+  CMemory *p_memory = CMemory::GetInstance();
+
+  CLock lock(&m_sendMessageQueueMutex);  //互斥量
+
+  //发送消息队列过大也可能给服务器带来风险
+  if (m_iSendMsgQueueCount > 50000) {
+    m_iDiscardSendPkgCount++;
+    p_memory->FreeMemory(pSendbuf);
+    return;
+  }
+
+  //总体数据并无风险，不会导致服务器崩溃，要看看个体数据，找一下恶意者了
+  LPSTRUC_MSG_HEADER pMsgHeader = (LPSTRUC_MSG_HEADER)pSendbuf;
+  lpngx_connection_t p_Conn = pMsgHeader->pConn;
+
+  if (p_Conn->iSendCount > 400) {
+    //该用户收消息太慢【或者干脆不收消息】，累积的该用户的发送队列中有的数据条目数过大，认为是恶意用户，直接切断
+    ngx_log_error_core(
+        NGX_LOG_INFO, 0,
+        "CSocket::msgSend()-> [client = %d] send to many pkg and close client",
+        p_Conn->fd);
+    m_iDiscardSendPkgCount++;
+    p_memory->FreeMemory(pSendbuf);
+    zdClosesocketProc(p_Conn);  //直接关闭
+    return;
+  }
+
+  ++p_Conn->iSendCount;  //发送队列中有的数据条目数+1；
   m_MsgSendQueue.push_back(pSendbuf);
-  ++m_iSendMsgQueueCount;
+  ++m_iSendMsgQueueCount;  //原子操作
 
   //将信号量的值+1,这样其他卡在sem_wait的就可以走下去
-  if (sem_post(&m_semEventSendQueue) ==
-      -1)  //让ServerSendQueueThread()流程走下来干活
-  {
-    ngx_log_stderr(0,
-                   "CSocket::msgSend()中sem_post(&m_semEventSendQueue)失败.");
+  if (sem_post(&m_semEventSendQueue) == -1) {
+    //让ServerSendQueueThread()流程走下来干活
+
+    ngx_log_error_core(
+        NGX_LOG_INFO, 0,
+        "CSocket::msgSend()->sem_post(&m_semEventSendQueue) failed");
   }
   ngx_log_error_core(NGX_LOG_DEBUG, 0, "CSocket::ngx_msgSend() success");
   return;
@@ -587,6 +615,7 @@ void *CSocket::ServerSendQueueThread(void *threadData) {
           pos++;
           continue;
         }
+        --p_Conn->iSendCount;
 
         //走到这里，可以发送消息
         p_Conn->psendMemPointer = pMsgBuf;
@@ -727,7 +756,7 @@ bool CSocket::TestFlood(lpngx_connection_t pConn) {
       m_floodTimeInterval)  //两次收到包的时间 < 100毫秒
   {
     //发包太频繁记录
-    pConn->FloodAttackCount++;
+    ++pConn->FloodAttackCount;
     pConn->FloodkickLastTime = iCurrTime;
   } else {
     //既然发布不这么频繁，则恢复计数值

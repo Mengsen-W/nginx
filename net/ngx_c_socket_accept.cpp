@@ -88,6 +88,19 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
       return;
     }
 
+    if (m_connectionList.size() >
+        static_cast<size_t>(m_worker_connections * 5)) {
+      /* 恶意用户发一条就断并且不断发 */
+      if (m_freeconnectionList.size() <
+          static_cast<size_t>(m_worker_connections)) {
+        /* 连接池太大空闲连接太小 */
+        ngx_log_error_core(NGX_LOG_INFO, 0,
+                           "user close->accept()-> connection list too number");
+        close(s);
+        return;
+      }
+    }
+
     // 成功 accept4() / accept()
     newc = ngx_get_connection(s); /* 连接池分配 */
 
@@ -138,6 +151,6 @@ void CSocket::ngx_event_accept(lpngx_connection_t oldc) {
     break;  //一般就是循环一次就跳出去
   } while (1);
 
-  ngx_log_error_core(NGX_LOG_DEBUG, 0, "accept() success");
+  // ngx_log_error_core(NGX_LOG_DEBUG, 0, "accept() success");
   return;
 }
