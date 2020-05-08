@@ -195,10 +195,17 @@ bool CSocket::ngx_open_listening_sockets() {
     if (setsockopt(isock, SOL_SOCKET, SO_REUSEADDR, (const void *)&reuseaddr,
                    sizeof(reuseaddr)) == -1) { /* 设置 bind() TIME_WAIT */
       ngx_log_error_core(NGX_LOG_ERR, errno,
-                         "CSocket::Initialize()->setsockopt() failed i = %d",
+                         "CSocket::Initialize()->setsockopt()->reuseaddr failed i = %d",
                          i);
       close(isock);
       return false;
+    }
+
+    if(setsockopt(isock,SOL_SOCKET,SO_REUSEPORT,(const void *)&reuseaddr,sizeof(reuseaddr)) == -1){
+      ngx_log_error_core(NGX_LOG_ERR, errno,
+                         "CSocket::Initialize()->setsockopt()->reuseport failed i = %d",
+                         i);
+
     }
 
     if (setnonblocking(isock) == false) { /* 设置非阻塞 */
